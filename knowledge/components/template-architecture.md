@@ -161,7 +161,8 @@ Deployment remains the adopting project's own guarded procedure. Æion Template 
 
 In the Claude profile, native auto-compaction is enabled at 340k. The state machine starts RUNNING; observing 340k
 latches HANDOVER_REQUIRED and emits one alert to user and agent. Code/subtask tools are refused;
-closure docs and fixed check commands remain. A checkpoint validates handover sections, Knowledge,
+closure docs, `work/current.md` and fixed check commands remain, at 390k (COMPACT_REQUIRED) too,
+because the checkpoint verifies them. A checkpoint validates handover sections, Knowledge,
 doc links, repository health and current task updates, then hashes source and handover bytes.
 Any later source or handover change invalidates readiness. An observed size back under 340k ends the
 latch, because a harness that compacts without the adapter seeing its compact SessionStart (dsh does)
@@ -185,12 +186,13 @@ there. A compact SessionStart begins RECOVERING
 and supplies the handover pointer; new positive native usage permits RUNNING. Resume alone does not clear STOPPED. The 340k and 390k alerts
 name the checkpoint command; a settlement that still owes closure names the missing receipt; closure
 admits a project's own Markdown docs, never code. The suggested base is an existing ref
-(`origin/develop`, `origin/main`, else `HEAD`), and a refused checkpoint reports the failing check's
-bounded output. Because dsh compaction is not dependable in every profile, its start context and
+(`origin/develop`, `origin/main`, else `HEAD`), and a refused checkpoint lists every `RULE`/`FAIL`
+line of the failing check (bounded at 50, the rest counted). Because dsh compaction is not dependable in every profile, its start context and
 gate messages also name the recovery: after the handover, `work/current.md` and the checkpoint
 verify, stop the session and resume from the handover instead of working past 340k.
 
-Observed usage at 390k or invalid complete usage latches STOPPED. Unavailable usage after bootstrap
+Invalid complete usage latches STOPPED; observed usage at 390k never does, it forces the handover
+and compaction. Unavailable usage after bootstrap
 blocks the current action and can recover after a valid observation. A PreCompact refusal uses
 that event's blocking decision. No extra model turn
 is requested to finish missing docs. A partial task remains incomplete. The current harness is

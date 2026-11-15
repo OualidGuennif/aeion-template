@@ -6,6 +6,17 @@ dates them at release time. Spec: knowledge/policies/engineering.md
 
 ## [Unreleased]
 
+## [4.0.3] - 2026-11-15
+
+- A refused checkpoint lists every `RULE …`/`FAIL …` line of the failing check, whole and one per line
+  (past 50 the rest are counted), instead of an 800-character tail that dropped the first `doc-links`
+  violations and cut one mid-path.
+
+- At 390k closure keeps the 340k set: docs, `work/current.md` and the fixed checks (`doc-links`,
+  `knowledge-check`, `repo-health`, `git status`/`diff`) stay open, because the checkpoint verifies
+  them. Before, only the handover could change, so a doc that `doc-links` named could not be fixed
+  before compaction. Code stays frozen.
+
 ## [4.0.2] - 2026-11-13
 
 - `tools/aeion-settings framework URL` clears the cached readiness probe, so the next session start no

@@ -14,8 +14,8 @@ the template context once per session and again after a compaction, and cancels 
 verified handover. The 340k alert names the checkpoint command, and closure admits a project's own
 Markdown docs. Use the shared sign-off skill at task completion. Pi controls its own compaction
 window (`compaction.reserveTokens`). At 340k, once the handover is verified, the extension compacts at
-the settlement boundary and resumes from the handover. At 390k only the handover and its checkpoint
-remain, and Pi compacts there whether or not the checkpoint verifies. A settlement that still owes
+the settlement boundary and resumes from the handover. At 390k closure keeps the 340k set (docs,
+task state, the checks and the checkpoint; code frozen), and Pi compacts there whether or not the checkpoint verifies. A settlement that still owes
 closure is continued at most three times, then settles with the reason in the UI; any other terminal
 stop (`continue: false`) settles at once with its reason shown, never as another request.
 

@@ -94,11 +94,14 @@ class BudgetTests(unittest.TestCase):
         first = self.call()
         self.assertIn("390k", first["systemMessage"])
         self.assertEqual(first["hookSpecificOutput"]["permissionDecision"], "deny")
-        # At 390k only the handover and its checkpoint remain; task state and docs were 340k's closure.
+        # 390k keeps 340k's closure: the checkpoint verifies the docs and work/current.md, so freezing them left
+        # a failing doc-links unrepairable before compaction. Code stays frozen.
         handover = budget.handover_path(self.root, "test-session")
-        self.assertNotIn("hookSpecificOutput", self.call(tool_name="Write", tool_input={"file_path": str(handover)}))
-        tasks = self.call(tool_name="Edit", tool_input={"file_path": str(self.root / "work/current.md")})
-        self.assertEqual(tasks["hookSpecificOutput"]["permissionDecision"], "deny")
+        for path in (handover, self.root / "work/current.md", self.root / "knowledge/policy.md"):
+            self.assertNotIn("hookSpecificOutput", self.call(tool_name="Write", tool_input={"file_path": str(path)}), path)
+        for command in ("tools/knowledge/doc-links", "tools/knowledge/knowledge-check", "git diff --stat"):
+            self.assertEqual(self.call(tool_name="Bash", tool_input={"command": command}), {}, command)
+        self.assertEqual(self.call()["hookSpecificOutput"]["permissionDecision"], "deny")
         self.assertFalse(self.call(hook_event_name="Stop")["continue"])
         self.assertNotIn("continue", self.call(hook_event_name="SessionStart", source="resume"))
         # Compaction ends the forced closure: the run continues instead of latching a stop.
@@ -342,6 +345,27 @@ class BudgetTests(unittest.TestCase):
         with patch.object(budget, 'CHECKS', (failing,)):
             with self.assertRaisesRegex(ValueError, 'broken'):
                 budget.checkpoint(self.root, 'test-session', 'HEAD')
+
+    def test_checkpoint_refusal_lists_every_rule_line_whole(self):
+        # An 800-character tail kept three of six L3 violations and cut the first one mid-path.
+        self.call()
+        handover = budget.ensure_handover(self.root, 'test-session')
+        handover.write_text(handover.read_text().replace('TODO', 'Fixture evidence'))
+        rules = [f"RULE L3 tools/area{i}/module.py changed, knowledge/components/area{i}.md did not: update it "
+                 f"(skill okf-update), or add 'Docs-Checked: knowledge/components/area{i}.md -- <why>' to a commit."
+                 for i in range(6)]
+        script = f"print({chr(10).join(rules + ['RESULT: FAIL (6)'])!r}); raise SystemExit(1)"
+        with patch.object(budget, 'CHECKS', ((budget.sys.executable, '-c', script),)):
+            with self.assertRaises(ValueError) as refused:
+                budget.checkpoint(self.root, 'test-session', 'HEAD')
+        self.assertEqual(str(refused.exception).splitlines()[1:], rules + ['RESULT: FAIL (6)'])
+        # A large backlog is bounded and counted, never silently dropped.
+        many = [f"RULE L4 src/f{i}.py names knowledge/x.md as its spec" for i in range(60)]
+        shown = budget.failure_lines("\n".join(many + ["RESULT: FAIL (60)"]))
+        self.assertEqual(shown[:50], many[:50])
+        self.assertEqual(shown[50:], ["... and 10 more; fix these, then verify again.", "RESULT: FAIL (60)"])
+        # Output that names no rule keeps its bounded tail.
+        self.assertEqual(budget.failure_lines("x" * 900 + "\nend"), [("x" * 900 + " end")[-800:]])
 
     def test_precompact_requires_a_current_checkpoint_below_the_forced_band(self):
         result = self.call(hook_event_name="PreCompact")

@@ -313,9 +313,11 @@ class HookTests(unittest.TestCase):
                 self.assertNotIn('continue', early)
             else:
                 self.assertFalse(early['continue'], provider)
-            # 390k: only the handover and its checkpoint remain, and the run is never stopped for size.
-            forced = self.measure(provider, 390_000, **tasks)
+            # 390k keeps 340k's closure (code frozen; docs, task state and the checks the checkpoint runs open),
+            # and the run is never stopped for size.
+            forced = self.measure(provider, 390_000, **edit)
             self.assertIn('390k', forced['hookSpecificOutput']['permissionDecisionReason'])
+            self.assertFalse(denied(self.measure(provider, 390_000, **tasks)), provider)
             self.assertFalse(denied(self.measure(provider, 390_000, tool_name='Write',
                                                  tool_input={'file_path': str(handover), 'content': 'x'})), provider)
             self.assertFalse(self.measure(provider, 390_000, hook_event_name='Stop')['continue'])
@@ -427,7 +429,7 @@ class HookTests(unittest.TestCase):
 
     def test_390k_stopgap_starts_a_new_epoch_for_opencode(self):
         # OpenCode sends no compact SessionStart, so the allowed compaction itself must leave the closure band, or
-        # compact_tool would keep code frozen and the debt could never be settled.
+        # the closure gate would keep code frozen and the debt could never be settled.
         session = hook.key('opencode', {'session_id': 'context-opencode'})
         state_file = self.root / '.aeion/context' / f'{session}.json'
         edit = {'tool_name': 'Edit', 'tool_input': {'file_path': str(self.root / 'src.py')}}

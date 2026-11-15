@@ -65,8 +65,10 @@ checkpoint, and a stale one whose handover is incomplete; a complete handover th
 the tree moved still compacts, and owes `closure_owed` until a fresh receipt, because the gate admits
 only the checkpoint command that could refresh it. Only closure work
 (docs/task/handover edits and fixed verification commands) remains available. At an observed
-390k closure narrows to the handover and its checkpoint (reads stay open), Stop is refused, and the
-message asks for the handover and compaction now. 390k never stops the run: once the checkpoint is
+390k closure keeps exactly that set (code stays frozen): the checkpoint runs `doc-links --diff`
+and, in the team flow, requires `work/current.md`, so narrowing it to the handover left a doc a check
+named unrepairable before compaction. Stop is refused, and the message asks for the handover and
+compaction now. 390k never stops the run: once the checkpoint is
 verified, compaction runs again and the session continues from its handover. A failing check does not
 recreate that stop at 390k: code is frozen there, so a check that failed before the session could be
 neither verified nor repaired. At 390k the hook signals the adapters to compact whether or not the
@@ -91,8 +93,10 @@ Before any compaction, fill `work/handovers/<session-id>.md`, update `work/curre
 docs, and run `python3 tools/context/budget.py checkpoint --session <id> --base <git-ref> --verify`
 (`--base` only under git; a plain folder skips the diff and task-state checks).
 The command runs knowledge/link/health checks and binds readiness to the current source diff
-and handover hash. Later edits invalidate it. A refused check names the check and a bounded tail of
-its output, so the agent can fix the failure instead of retrying a bare exit status. Compaction is
+and handover hash. Later edits invalidate it. A refused check names the check and lists every
+`RULE …`/`FAIL …` line it printed, whole and one per line (past 50 the rest are counted), so the agent
+fixes them in one pass instead of retrying a bare exit status; output that names no rule keeps a
+bounded tail. Compaction is
 refused without a current receipt, and the refusal names the paths changed since it: a live session
 log inside the tree changes on every event, so it is git-ignored or written outside
 the project.

@@ -190,6 +190,18 @@ def fingerprint(root, files=None):
     return digest.hexdigest()
 
 
+def failure_lines(output, limit=50):
+    """What a failing check said, for its refusal: every `RULE`/`FAIL` line whole and on its own line, so one pass
+    fixes them all (a tail cut the first violations off and split one mid-path); the output's tail when it names
+    none. Past `limit` the refusal counts the rest, so a large backlog never floods a context near its limit."""
+    lines = [line.strip() for line in output.splitlines() if line.strip()]
+    named = [line for line in lines if line.startswith(("RULE ", "FAIL "))]
+    if not named:
+        return [" ".join(" ".join(lines).split())[-800:]] if lines else []
+    hidden = [f"... and {len(named) - limit} more; fix these, then verify again."] if len(named) > limit else []
+    return named[:limit] + hidden + [line for line in lines if line.startswith("RESULT:")][-1:]
+
+
 def changed_paths(before, after, limit=5):
     """The paths whose bytes differ between two tree_files maps, named so a live log is easy to spot."""
     paths = sorted(rel for rel in before.keys() | after.keys() if before.get(rel) != after.get(rel))
@@ -227,6 +239,9 @@ def ready(root, session, state):
 
 
 def closure_tool(root, event):
+    """What closure admits at 340k and 390k alike: reads, docs and task state, the fixed checks and this root's
+    checkpoint. The checkpoint verifies those docs (doc-links L3) and work/current.md, so 390k keeps them open too;
+    code stays frozen at both."""
     tool = event.get("tool_name")
     data = event.get("tool_input", {})
     if not isinstance(data, dict):
@@ -298,28 +313,6 @@ def checkpoint_call(root, event, words):
                               and re.fullmatch(r"[A-Za-z0-9_./-]+", rest[4]) is not None)
 
 
-def compact_tool(root, event):
-    """At 390k only what compaction needs remains: reading, the handover and its checkpoint."""
-    tool = event.get("tool_name")
-    data = event.get("tool_input", {})
-    if not isinstance(data, dict):
-        return False
-    if tool in {"Read", "Grep", "Glob"}:
-        return True
-    if tool in {"Edit", "Write"}:
-        return Path(data.get("file_path", "")).resolve() == handover_path(root, event["session_id"]).resolve()
-    if tool == "Bash":
-        command = data.get("command", "")
-        if not isinstance(command, str):
-            return False
-        try:
-            words = shlex.split(command)
-        except ValueError:
-            return False
-        return read_call(command, words) or checkpoint_call(root, event, words)
-    return False
-
-
 def apply_usage(root, session, state, name, event, usage):
     """The 340k/390k rule every harness shares, from the context usage that harness measured."""
     handover = handover_path(root, session)
@@ -339,7 +332,7 @@ def apply_usage(root, session, state, name, event, usage):
         # A verified receipt settles the debt the 390k stopgap deferred; the state machine then continues as before.
         if state.get("closure_owed") == "due" and ready(root, session, state):
             state.pop("closure_owed", None)
-        # 390k never stops the run: it narrows closure to the handover and forces compaction again.
+        # 390k never stops the run: it forces the handover and compaction again, with the same closure as 340k.
         if usage >= LIMIT and state["state"] != "COMPACT_REQUIRED":
             state["state"] = "COMPACT_REQUIRED"
             state["warning_pending"] = True
@@ -399,15 +392,14 @@ def apply_usage(root, session, state, name, event, usage):
             else:
                 # The gate exists to obtain one verified handover. Once the receipt matches, denying further calls
                 # only holds the session hostage until a compaction the plugin cannot guarantee actually lands.
-                verified = ready(root, session, state)
                 if state["state"] == "COMPACT_REQUIRED":
-                    message = (f"Æion Template {LIMIT_K}: write {handover.relative_to(root)} and verify the checkpoint now "
+                    message = (f"Æion Template {LIMIT_K}: closure only, now: write {handover.relative_to(root)}, update "
+                               f"work/current.md and the docs the checks name, and verify the checkpoint "
                                f"({checkpoint_command(root, session)}); compaction follows; {SHAPE}.")
-                    allowed = verified or compact_tool(root, call)
                 else:
                     message = (f"Æion Template {WARN_K} alert: finish closure only, update {handover.relative_to(root)}, work/current.md and affected docs; "
                                f"verify the checkpoint before compaction ({checkpoint_command(root, session)}); {SHAPE}.")
-                    allowed = verified or closure_tool(root, call)
+                allowed = ready(root, session, state) or closure_tool(root, call)
                 if name == "PreToolUse" and not allowed:
                     result = {"hookSpecificOutput": {"hookEventName": name, "permissionDecision": "deny", "permissionDecisionReason": message}}
                 elif name in {"Stop", "SubagentStop"}:
@@ -530,9 +522,9 @@ def checkpoint(root, session, base):
         for command in (*CHECKS, *diff):
             result = subprocess.run(command, cwd=root, timeout=30, capture_output=True, text=True)
             if result.returncode:
-                detail = " ".join((result.stdout + result.stderr).split())[-800:]
+                detail = failure_lines(result.stdout + result.stderr)
                 raise ValueError(f"{command[0]} failed (exit {result.returncode})"
-                                 + (f": {detail}" if detail else ""))
+                                 + (":\n" + "\n".join(detail) if detail else ""))
         changed = set() if not repository else set(git(root, "diff", "--name-only", "-z", base).decode().split("\0")) - {""}
         changed |= {os.fsdecode(path) for path in (git(root, "ls-files", "--others", "--exclude-standard", "-z") if repository else b"").split(b"\0")
                     if path and not os.fsdecode(path).startswith((".aeion/", "work/handovers/"))}
