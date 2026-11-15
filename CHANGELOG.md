@@ -6,6 +6,8 @@ dates them at release time. Spec: knowledge/policies/engineering.md
 
 ## [Unreleased]
 
+## [4.0.3] - 2026-11-15
+
 - A refused checkpoint lists every `RULE …`/`FAIL …` line of the failing check, whole and one per line
   (past 50 the rest are counted), instead of an 800-character tail that dropped the first `doc-links`
   violations and cut one mid-path.
