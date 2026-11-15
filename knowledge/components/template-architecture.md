@@ -191,7 +191,8 @@ line of the failing check (bounded at 50, the rest counted). Because dsh compact
 gate messages also name the recovery: after the handover, `work/current.md` and the checkpoint
 verify, stop the session and resume from the handover instead of working past 340k.
 
-Observed usage at 390k or invalid complete usage latches STOPPED. Unavailable usage after bootstrap
+Invalid complete usage latches STOPPED; observed usage at 390k never does, it forces the handover
+and compaction. Unavailable usage after bootstrap
 blocks the current action and can recover after a valid observation. A PreCompact refusal uses
 that event's blocking decision. No extra model turn
 is requested to finish missing docs. A partial task remains incomplete. The current harness is
