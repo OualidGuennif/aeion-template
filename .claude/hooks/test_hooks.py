@@ -530,6 +530,9 @@ with tempfile.TemporaryDirectory() as intake_dir:
     expect("intake sizes a captured absolute cat after cd", run_hook("guard-bash.py", {"command": f"cd /tmp && x=$(cat '{small}') && echo $x"}), 0)
     expect("intake refuses a large absolute cat after cd", run_hook("guard-bash.py", {"command": f"cd /tmp && cat '{many}'"}), 2, stderr_has="over 400 lines")
     expect("intake refuses a mixed relative cat after cd", run_hook("guard-bash.py", {"command": f"cd /tmp && cat '{small}' many.log"}), 2, stderr_has="after a cd")
+    # A cat that writes a small literal heredoc names no path, so a cd before it changes nothing (Droid, 2026-11-24).
+    expect("intake allows a heredoc written by cat after cd", run_hook("guard-bash.py", {"command": f"cd '{intake}' && mkdir -p tmp && cat > tmp/payload.json <<'EOF'\n{{\"a\": 1}}\nEOF"}), 0)
+    expect("intake still refuses cat's own standard input after cd", run_hook("guard-bash.py", {"command": f"cd '{intake}' && cat"}), 2, stderr_has="standard input")
     expect("intake names a variable path as the cause", run_hook("guard-bash.py", {"command": 'cat "$S/serve03.pid" | head -n 1; echo'}), 2, stderr_has='cannot size "$S/serve03.pid" (a variable or glob path)')
     expect("intake names an oversized file", run_hook("guard-bash.py", {"command": f"cat '{many}'"}), 2, stderr_has='many.log" is over 400 lines')
     expect("intake keeps secret refusal ahead of limiter", run_hook("guard-bash.py", {"command": "cat .env | head -n 80"}), 2, stderr_has="secret")

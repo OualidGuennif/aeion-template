@@ -905,8 +905,9 @@ def intake_dump(command, base, changed_directory=False):
         if name not in {"cat", "less", "more"}:
             continue
         paths = [w for w in words[1:] if not w.startswith("-")]
-        # An absolute path names the same file whatever the directory, so only a relative one needs the cwd.
-        if changed_directory and not (paths and all(PurePosixPath(p).is_absolute() for p in paths)):
+        # An absolute path names the same file whatever the directory, so only a relative one needs the cwd; a cat
+        # of its standard input (a heredoc written to a file) names no path, so a cd changes nothing for it.
+        if changed_directory and any(not PurePosixPath(p).is_absolute() for p in paths):
             return f"cannot size {name} after a cd (the path depends on the new directory); use head -n 80 <path>"
         if not paths:
             # Small literal heredocs construct prompt/body text; unknown stdin is not sized.

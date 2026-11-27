@@ -249,6 +249,10 @@ def closure_tool(root, event):
     data = event.get("tool_input", {})
     if not isinstance(data, dict):
         return False
+    # An adapter marks a call closure admits: a harness tool that acts only through calls this gate judges one by
+    # one (Droid's Script), or any Droid call once its 340k handover verified (tools/agents/hook.py).
+    if event.get("closure_safe") is True:
+        return True
     # The handover must describe live state (a background run, an open page), so reading it stays open.
     if tool in {"Read", "Grep", "Glob", "TaskOutput", "BashOutput"}:
         return True
@@ -371,7 +375,7 @@ def apply_usage(root, session, state, name, event, usage):
             # denying it would turn the escape hatch into a permanent gate. A latch a harness set because its own
             # compaction resumed in closure is not a threshold latch: `resumed_in_closure` keeps it until the
             # handover verifies, which is the whole point of that resume.
-            # A zero is the stand-in a harness that measures nothing (Droid) uses, never a real measurement.
+            # A zero is the stand-in for a harness that has measured nothing yet, never a real measurement.
             state["state"] = "RUNNING"
             state.pop("warning_pending", None)
             if not ready(root, session, state):
@@ -572,7 +576,9 @@ def checkpoint(root, session, base):
         if fingerprint(root, after) != before:
             raise ValueError(f"files changed during checkpoint validation: {changed_paths(files, after) or 'HEAD'} "
                              "(a live log in the tree makes every receipt stale: git-ignore it)")
-        state["checkpoint"] = {"tree": before, "files": files, "handover": hashlib.sha256(handover.read_bytes()).hexdigest()}
+        # The closure the receipt was taken in: Droid keeps a 340k one open until its compaction.
+        state["checkpoint"] = {"tree": before, "files": files, "handover": hashlib.sha256(handover.read_bytes()).hexdigest(),
+                               "state": state["state"]}
         # `closure_owed` stays until the next event reads this receipt: Codex and Droid leave their closure state
         # only on that event, so dropping the flag here would strand them in a closure that is already satisfied.
         atomic(file, json.dumps(state, sort_keys=True) + "\n")

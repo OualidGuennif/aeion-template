@@ -42,6 +42,13 @@ files by walking at most 10,000 entries; a larger tree is refused, and `git grep
 Grep inside the git work tree stays available ([security](security.md)). The path guard sizes and
 judges a symlink's target, not only its name.
 
+Images in Droid get their own budget. Droid's Read re-encodes an image before it enters the
+context: on 2026-11-24, previews of 18 to 57 KB on disk arrived as 52 to 152 KB each, so the file
+size check never applied, and every image is resent with each later call. A Droid session therefore
+admits at most **4 image Reads** (`.png`, `.jpg`, `.jpeg`, `.gif`, `.webp`) per context epoch; the
+count restarts with the epoch at the compact `SessionStart`. A read that another guard or the
+context gate refused is not counted. Other harnesses are unchanged.
+
 ## Outputs and refusals
 
 An oversized full read/dump exits 2 with a short alternative. Edit/Write/patch operations retain
@@ -50,8 +57,12 @@ and `more` calls, dynamic/glob dumps and `find -exec cat` are refused without a 
 pipeline. Use `head -n 80`, `head -c 65536`, `tail -n 80` or a summary such as `wc -l`.
 Keep the bounded pipeline separate from unrelated shell commands. Use `cp` for file copies. The
 refusal names its cause: the file over the limit, a variable or glob path, or a `cat` of a relative path
-after a `cd` (an absolute path is sized whatever the directory).
+after a `cd` (an absolute path is sized whatever the directory; a `cat` of a small literal heredoc names
+no path, so `cd <dir> && cat > file <<'EOF'` is allowed as it is without the `cd`).
 Tests remain runnable; quiet/fail-fast flags and error summaries are guidance in this version.
+The fifth image Read in one Droid epoch is refused with the reason: the budget is spent, each image
+is resent with every call, so check pages with a script that prints the numbers and leave the visual
+review to the owner; the budget restarts at the next compaction.
 
 Prompt defense (`.claude/hooks/prompt-defense.py`) never refuses either: it reads at most 64 KiB in
 total of a tool result the harness forwards, flags hidden characters, role markers, override phrases
@@ -79,7 +90,9 @@ policy changes no model, reasoning-effort or provider setting and claims no meas
 ## Invariants
 
 Secrets remain refused even with a limiter. Native adapters preserve tool kind and range/count
-arguments, so bounded reads work and large-file edits remain available. Guard regressions cover
+arguments, so bounded reads work and large-file edits remain available. Droid fires PreToolUse for
+the calls inside its `Script` tool, so the intake guards refuse oversized reads there too (live 2026-11-23). A Droid
+epoch never holds more than 4 image Reads, whatever the session's age. Guard regressions cover
 thresholds, long lines, explicit ranges, real native fields and misleading limiter placement.
 
 ## Determinism
@@ -92,7 +105,8 @@ framework mode; the owner's settings never change an intake limit.
 
 ## Acceptance
 
-Run `python3 .claude/hooks/test_hooks.py` and `python3 tools/agents/tests/test_hooks.py`, then the
+Run `python3 .claude/hooks/test_hooks.py` and `python3 tools/agents/tests/test_hooks.py`
+(`test_droid_reads_at_most_four_images_per_context_epoch` for the image budget), then the
 existing Knowledge, context and native-plugin checks. Check real workflow friction
 before extending the recognized command patterns.
 
