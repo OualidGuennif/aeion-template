@@ -9,9 +9,9 @@ A change to this file alone reaches `develop` without a review run (pre-push); s
 moving entries and counts the waiting ones by the age of their heading line.
 
 ## Adopter feedback on compaction and work/ — ACTIVE
-- Owner decision: 2026-11-27, challenge each item of two adopters' feedback (compaction; a Droid session with its patch), then build what holds.
+- Owner decision: 2026-11-27, keep Droid's exception that holds a verified 340k handover open until its native compaction (ff74d42 builds both feedbacks).
 - State: both are built on `task/feedback-compaction-work`: the first feedback, the Droid patch merged as is (476adb6), and the Droid items that held (closure commit loop, handover size, folder sources, untracked work in repo-health, guard-bash wording, scratch folder, adopt). Nothing merged into `develop`, reviewed or pushed.
-- Next: the owner confirms Droid's verified-handover exception, then decides the merge into `develop`, the `pr-review` run and the push (who: owner, then agent).
+- Next: the owner decides the merge into `develop`, the `pr-review` run and the push (who: owner, then agent).
 - Blocker: none.
 - Evidence: CHANGELOG.md Unreleased; knowledge/operations/context-safety.md; tools/template-tests
 

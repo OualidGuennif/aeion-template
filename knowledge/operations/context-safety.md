@@ -78,7 +78,7 @@ only the checkpoint command that could refresh it. Only closure work
 acts only through calls the gate judges one by one passes too, when its adapter marks it
 (`closure_safe`): Droid's `Script`, with `WaitForScript` and `TodoWrite`; a subagent (`Task`) stays
 closed. Without that mark a Droid session whose tools all run inside `Script` could not even write
-its handover. Droid keeps a verified 340k handover until its compaction:
+its handover. Droid keeps a verified 340k handover until its compaction (owner decision 2026-11-27):
 the receipt records the closure it was taken in, and once it verifies, a later edit (this session's or
 another session's in the same clone) no longer freezes code again. That compaction owes no closure,
 and its compact SessionStart names the files changed since the receipt. Droid compacts natively 15k
