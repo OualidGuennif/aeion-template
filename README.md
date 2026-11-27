@@ -17,7 +17,8 @@ your agent, nothing else, and your own rules and decisions come first.
 Coding agents write code faster than anyone can review it, and they lose instructions when their
 context fills up. Here the rules that matter live in hooks, so they hold for the whole session. Once
 your agent has loaded them, it cannot read `.env` or edit a file before reading the docs that cover
-it, and at 340k tokens it must write a verified handover before it compacts. In the team flow, git
+it. On the agents that expose compaction to hooks, it must also write a verified handover at 340k
+tokens before it compacts. In the team flow, git
 refuses a push of `develop` without a recorded review. A task is done when a check passed, and the
 agent reports the checks it actually ran.
 
@@ -144,16 +145,16 @@ The [command reference](command.md) lists every command and skill.
 
 Agent hooks run inside your agent's session once it has loaded the project's hooks. Claude Code reads
 `.claude/settings.json`, and the other agents get the same guards through the adapters in the table
-above.
+above, within the limits [Agent compatibility](knowledge/operations/agent-compatibility.md) lists.
 
 | Hook | Runs | What it does |
 | --- | --- | --- |
 | `session-start` | Session start, resume, compaction | Shows the mode, the doc gate and framework mode, branch, git status, last commits, open tasks and repo health |
 | `doc-gate` | Before each edit; after each read | **Refuses** editing a file until the docs that cover it were read in the session (again after a compaction); in framework mode, also the briefs of its `@req` requirements |
-| `guard-bash` | Before every shell command | **Refuses** secret reads (also through globs, links and recursive searches), force-push, skipping git hooks, switching the flow mode or your settings, writing `.git/config`, unbounded dumps |
+| `guard-bash` | Before every shell command | **Refuses** secret reads (also through globs, and through recursive searches, links included), force-push, skipping git hooks, switching the flow mode or your settings, writing `.git/config`, unbounded dumps |
 | `guard-path` | Before Read, Edit, Write, Grep | **Refuses** secret files (a link judged by its target), writing `.git/config` or `.aeion/settings.json`, oversized reads |
 | `after-edit` | After each edit | Runs the fast checks for the edited file and names the doc that covers it |
-| `context-budget` | Every event | At 340k tokens: a verified handover, then compaction; at 390k, both are forced |
+| `context-budget` | Every event | At 340k tokens: a verified handover, then compaction; at 390k, both are forced. Devin and Antigravity have no compaction checkpoint, and Grok cannot refuse a compaction |
 | `prompt-defense` | After web, MCP and network commands | Flags text that tries to steer the agent (advisory) |
 | `token-feedback` | After tools, at stop | Flags tokens spent for nothing (advisory) |
 | `sign-off` | When the agent stops (team flow) | Reminds once to update the covering docs and `work/current.md` |
