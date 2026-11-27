@@ -6,6 +6,11 @@ dates them at release time. Spec: knowledge/policies/engineering.md
 
 ## [Unreleased]
 
+- The Pi, OpenCode and dsh test suites no longer leave handover skeletons in the real `work/handovers/`
+  (five per run). Their closure tests drive the real hook against this repository. A shared guard
+  (`tools/agents/tests/leak-guard.mjs`) now removes what the suite's own sessions wrote, and fails the
+  suite when any other new skeleton of its provider appears.
+
 ## [4.0.3] - 2026-11-15
 
 - A refused checkpoint lists every `RULE …`/`FAIL …` line of the failing check, whole and one per line

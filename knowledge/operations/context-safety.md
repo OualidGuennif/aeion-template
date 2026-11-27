@@ -29,6 +29,9 @@ sources:
   - id: launcher
     resource: ../../tools/context/run
     title: "Managed launch and unsupported strict refusal"
+  - id: leak-guard
+    resource: ../../tools/agents/tests/leak-guard.mjs
+    title: "Adapter suites leave no handover behind"
 ---
 
 # Context safety
