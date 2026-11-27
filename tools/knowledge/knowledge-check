@@ -59,7 +59,7 @@ def check_concept(path, root, problems):
         problems.append(f"{rel}: {len(whats)} verified entries (max 3); drop the oldest")
     problems += [f"{rel}: a verified 'what' over 300 characters" for w in whats if len(w) > 300]
     if body.count("\n") > 600:
-        problems.append(f"{rel}: body over 600 lines; split it along its headings")
+        problems.append(f"{rel}: body over 600 lines by {body.count(chr(10)) - 600}; split it along its headings")
     if field(block, "type") == "Component" and path.name != "_template.md":
         problems += [f"{rel}: Component lacks '{s}'" for s in SPEC_SECTIONS if s not in body]
     return field(block, "status")

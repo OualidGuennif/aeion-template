@@ -615,6 +615,7 @@ shutil.rmtree(after)
 # sign-off: in a throwaway repo, a code change without its doc blocks once, then passes.
 tmp = Path(tempfile.mkdtemp())
 for rel in (".claude/hooks/sign-off.py", ".claude/hooks/secret_names.py", ".claude/hooks/project_files.py",
+            ".claude/hooks/handovers.py",
             "tools/knowledge/doc-links"):
     (tmp / rel).parent.mkdir(parents=True, exist_ok=True)
     shutil.copy(ROOT / rel, tmp / rel)
@@ -649,6 +650,15 @@ expect("sign-off: names the doc", first, 0, "knowledge/components/x.md")
 expect("sign-off: asks for the changelog line", first, 0, "CHANGELOG.md did not change")
 if '"block"' in stop("busy").stdout:
     failures.append("sign-off blocked twice on the same findings")
+# A written handover saved before the last commit is behind: the session is told once, even with no code edited.
+(tmp / "work/handovers").mkdir()
+behind = tmp / f"work/handovers/recovering-{RUN}.md"
+behind.write_text("# Handover\n\n## Scope\nthe probe\n")
+os.utime(behind, (time.time() - 86400,) * 2)
+result = stop("recovering")
+expect("sign-off: a handover behind HEAD blocks once", result, 0, "is behind (HEAD")
+if '"block"' in stop("recovering").stdout:
+    failures.append("sign-off blocked twice on a behind handover")
 
 # A filename with spaces and accents must survive both Git and the edited-file log.
 special = "src/café file.py"
@@ -709,7 +719,7 @@ shutil.rmtree(parent)
 def session_start(mode, global_mode=None, git=True, tasks=1, hooks_path=None, files=None, env=None):
     repo = Path(tempfile.mkdtemp())
     for rel in (".claude/hooks/session-start.py", ".claude/hooks/project_files.py", ".claude/hooks/aeion_settings.py",
-                "tools/repo-health/repo-health"):
+                ".claude/hooks/handovers.py", "tools/repo-health/repo-health"):
         (repo / rel).parent.mkdir(parents=True, exist_ok=True)
         shutil.copy(ROOT / rel, repo / rel)
     (repo / "work").mkdir()
@@ -759,6 +769,52 @@ result = session_start("team", tasks=8)
 expect("session-start names the tasks it leaves out", result, 0, "  … and 3 more")
 if "Probe task 6" in result.stdout or len(result.stdout.strip().split("\n")) > 25:
     failures.append("session-start listed more than five of eight tasks or printed more than 25 lines")
+
+
+def session_start_with_history(event):
+    """A repository whose work/current.md was committed 40 days ago, a week-old skeleton, a handover saved before."""
+    repo = Path(tempfile.mkdtemp())
+    for rel in (".claude/hooks/session-start.py", ".claude/hooks/project_files.py", ".claude/hooks/aeion_settings.py",
+                ".claude/hooks/handovers.py", "tools/repo-health/repo-health"):
+        (repo / rel).parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy(ROOT / rel, repo / rel)
+    (repo / "work/handovers").mkdir(parents=True)
+    (repo / "work/current.md").write_text("# Current work\n\n## Moving — ACTIVE\n- State: x\n\n## Waits — WAITING-OWNER\n"
+                                          "- State: x\n\n## Someday — BACKLOG\n- State: x\n")
+    old = time.time() - 40 * 86400
+    env = {**os.environ, "GIT_CONFIG_GLOBAL": os.devnull, "GIT_CONFIG_NOSYSTEM": "1",
+           "GIT_COMMITTER_DATE": f"@{int(old)} +0000", "GIT_AUTHOR_DATE": f"@{int(old)} +0000"}
+    for args in (["init", "-q", "-b", "main"], ["add", "work/current.md"], ["-c", "user.name=t", "-c", "user.email=t@t",
+                                                                            "commit", "-qm", "Probe commit"]):
+        subprocess.run(["git"] + args, cwd=repo, capture_output=True, check=True, env=env)
+    skeleton = repo / "work/handovers/pi-old.md"
+    skeleton.write_text("# Handover pi-old\n\n## Scope\nTODO\n\n## Completed\nTODO\n")
+    written = repo / "work/handovers/probe-session.md"
+    written.write_text("# Handover probe-session\n\n## Scope\nthe probe\n")
+    for path in (skeleton, written):
+        os.utime(path, (old - 86400,) * 2)
+    result = subprocess.run([sys.executable, str(repo / ".claude/hooks/session-start.py")], capture_output=True,
+                            text=True, cwd=repo, input=json.dumps(event))
+    left = sorted(p.name for p in (repo / "work/handovers").iterdir())
+    shutil.rmtree(repo)
+    return result, left
+
+
+result, left = session_start_with_history({"session_id": "probe-session"})
+expect("session-start lists the moving task with its age", result, 0, "  Moving — ACTIVE (unchanged since ")
+expect("session-start counts the waiting tasks", result, 0, "3 open task(s); 2 waiting on the owner or in backlog, "
+       "oldest unchanged since ")
+if "Waits — WAITING-OWNER" in result.stdout or "Someday" in result.stdout:
+    failures.append("session-start listed a waiting task instead of counting it")
+expect("session-start prunes a week-old unfilled skeleton", result, 0, "handovers: removed 1 unfilled skeleton(s)")
+if left != ["probe-session.md"]:
+    failures.append(f"session-start pruned the wrong handovers: {left}")
+expect("session-start says the session's handover is behind", result, 0,
+       "handover: work/handovers/probe-session.md is behind (HEAD and work/current.md moved after it was saved)")
+result, _ = session_start_with_history({"session_id": "another-session"})
+if "is behind" in result.stdout:
+    failures.append("session-start reported another session's handover as behind")
+
 expect("session-start names git hooks that are off", session_start("team"), 0,
        "git hooks: off; enable with git config core.hooksPath tools/git-hooks")
 if "git hooks: off" in session_start("team", hooks_path="tools/git-hooks").stdout:

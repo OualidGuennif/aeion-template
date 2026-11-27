@@ -2,6 +2,7 @@
 """Boundary, recovery and refusal regressions for the real budget implementation."""
 import importlib.util
 import json
+import os
 from pathlib import Path
 import subprocess
 import tempfile
@@ -458,6 +459,84 @@ class BudgetTests(unittest.TestCase):
                         "cat $HOME/x", "python3 -c 1"):
             result = self.call(tool_name="Bash", tool_input={"command": command})
             self.assertEqual(result["hookSpecificOutput"]["permissionDecision"], "deny", command)
+
+    def test_read_only_tools_stay_open_during_closure(self):
+        # A live check frozen mid-step left a handover describing a page and a background run it could not see.
+        self.observe(340000)
+        self.call()
+        browser = "mcp__Claude_Browser__"
+        for tool, data in [("TaskOutput", {"task_id": "b1"}), ("BashOutput", {"bash_id": "b1"}),
+                           (browser + "find", {"query": "Deploy"}), ("mcp__claude-in-chrome__get_page_text", {}),
+                           (browser + "computer", {"action": "screenshot"}), (browser + "read_console_messages", {}),
+                           ("Bash", {"command": "git log --oneline -5"}), ("Bash", {"command": "git show HEAD --stat"}),
+                           ("Bash", {"command": "git diff origin/develop -- knowledge"}), ("Bash", {"command": "git status"})]:
+            result = self.call(tool_name=tool, tool_input=data)
+            self.assertNotIn("permissionDecision", result.get("hookSpecificOutput", {}), (tool, data))
+        secret = "." + "env"
+        for tool, data in [(browser + "navigate", {"url": "https://example.com"}),
+                           (browser + "computer", {"action": "left_click"}), (browser + "form_input", {}),
+                           ("mcp__other__find", {}), ("Bash", {"command": "git diff --output=x.patch"}),
+                           ("Bash", {"command": f"git diff --no-index /dev/null {secret}"}),
+                           ("Bash", {"command": "git log --ext-diff -p"}), ("Bash", {"command": f"git show HEAD:{secret}"}),
+                           ("Bash", {"command": "git commit -m x"}), ("Bash", {"command": "git push"}),
+                           ("Bash", {"command": "git log; rm -rf x"})]:
+            result = self.call(tool_name=tool, tool_input=data)
+            self.assertEqual(result["hookSpecificOutput"]["permissionDecision"], "deny", (tool, data))
+
+    def test_a_300k_notice_asks_for_the_handover_once_per_climb_and_refuses_nothing(self):
+        self.observe(299999)
+        self.assertEqual(self.call(), {})
+        self.observe(300000)
+        notice = self.call()
+        self.assertIn("300k notice", notice["systemMessage"])
+        self.assertNotIn("permissionDecision", notice["hookSpecificOutput"])
+        self.assertTrue(budget.handover_path(self.root, "test-session").is_file())
+        self.observe(320000)
+        self.assertEqual(self.call(), {})
+        # A compaction brings the size back down; the next climb gets its own notice.
+        self.observe(1000)
+        self.assertEqual(self.call(), {})
+        self.observe(310000)
+        self.assertIn("300k notice", self.call(hook_event_name="PostToolUse")["systemMessage"])
+        # Stop cannot carry it; the 340k alert replaces it.
+        self.observe(1000)
+        self.call()
+        self.observe(305000)
+        self.assertEqual(self.call(hook_event_name="Stop"), {})
+        self.observe(345000)
+        self.assertIn("340k alert", self.call()["systemMessage"])
+
+    def test_unfilled_skeletons_are_pruned_after_a_week_and_a_written_handover_reports_what_moved(self):
+        handovers = budget.handovers
+        folder = handovers.folder(self.root)
+        folder.mkdir(parents=True)
+        old_shape = folder / "pi-old.md"
+        old_shape.write_text("# Handover pi-old\n\n" + "\n\n".join(f"## {h}\nTODO" for h in handovers.HEADINGS) + "\n")
+        fresh = budget.ensure_handover(self.root, "fresh")
+        written = folder / "written.md"
+        written.write_text(handovers.skeleton("written").replace("TODO: the exact next commands, in order", "run the tests"))
+        self.assertTrue(handovers.unfilled(old_shape) and handovers.unfilled(fresh))
+        self.assertFalse(handovers.unfilled(written))
+        week = 8 * 86400
+        for path in (old_shape, written):
+            os.utime(path, (path.stat().st_mtime - week,) * 2)
+        self.assertEqual(handovers.prune(self.root), 1)
+        self.assertEqual(sorted(p.name for p in folder.iterdir()), ["fresh.md", "written.md"])
+        # The written handover is a week old and HEAD and work/current.md moved after it.
+        (self.root / "work/current.md").write_text("# Current work\n")
+        subprocess.run(["git", "-C", str(self.root), "-c", "user.name=Test", "-c", "user.email=test@example.invalid",
+                        "commit", "-qm", "later", "--allow-empty"], check=True)
+        self.assertEqual(handovers.behind(self.root, written), ["HEAD", "work/current.md"])
+        written.write_text(written.read_text() + "\nupdated\n")
+        self.assertEqual(handovers.behind(self.root, written), [])
+        self.assertEqual(handovers.behind(self.root, fresh), [])
+        # Closure saves the handover, then work/current.md, then verifies: the checkpoint's record decides, not the
+        # save time, so a just-verified handover is never called behind.
+        (self.root / "work/current.md").write_text("# Current work\n\n## Task — ACTIVE\n")
+        handovers.record(self.root, "written")
+        self.assertEqual(handovers.behind(self.root, written), [])
+        (self.root / "work/current.md").write_text("# Current work\n")
+        self.assertEqual(handovers.behind(self.root, written), ["work/current.md"])
 
     def test_checkpoint_is_admitted_from_any_folder_and_only_for_this_root(self):
         # A shell left in a subfolder at the alert must still reach this root's checkpoint.

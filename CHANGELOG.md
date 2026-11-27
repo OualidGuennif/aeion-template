@@ -6,6 +6,28 @@ dates them at release time. Spec: knowledge/policies/engineering.md
 
 ## [Unreleased]
 
+- A 300k notice asks for the handover while the detail is still in context, once per climb, and
+  refuses nothing. Claude compacts natively at the same 340k that raises the alert, so before this
+  the handover was written after the compaction, from the summary.
+- Closure keeps reads open: background task output, plain `git status`/`log`/`show`/`diff`, and browser
+  reads of the open page (find, page text, console, screenshots). Writes, navigation, clicks,
+  `--output`, `--ext-diff` and `--no-index` stay closed.
+- The handover skeleton names what each section wants (the owner's rules, the exact next commands,
+  evidence ids): what a compaction summary drops, not what it already holds.
+- A handover is reported as behind when HEAD or `work/current.md` moved after it was saved: at session
+  start, and once at the Stop sign-off. Unfilled skeletons older than seven days are removed at session
+  start, and `repo-health` warns past 20 of them without failing.
+- Session start lists the moving tasks of `work/current.md` and counts the waiting ones, with the date
+  each was last changed (by `git blame` of its heading); entries unchanged for 30 days show that date.
+- A push of `develop` that only fast-forwards `work/current.md` needs no review run.
+- `- Owner decision:` holds the latest decision only, with its commit or PR (header of `work/current.md`).
+- Token feedback tolerates a short status line again every five minutes, so the Claude app's request
+  for a word on a long step no longer draws a narration warning.
+- Clearer refusals: an environment dump in a heredoc names the Write/Edit tool, and a knowledge doc
+  over 600 lines says by how many.
+- The Claude 340k path is reported live once, from the desktop app; the runbook says so, and that
+  the 390k path stays unverified.
+
 - The Pi, OpenCode and dsh test suites no longer leave handover skeletons in the real `work/handovers/`
   (five per run). Their closure tests drive the real hook against this repository. A shared guard
   (`tools/agents/tests/leak-guard.mjs`) now removes what the suite's own sessions wrote, and fails the

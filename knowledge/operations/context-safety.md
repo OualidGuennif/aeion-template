@@ -29,6 +29,9 @@ sources:
   - id: launcher
     resource: ../../tools/context/run
     title: "Managed launch and unsupported strict refusal"
+  - id: handovers
+    resource: ../../.claude/hooks/handovers.py
+    title: "Handover skeleton, pruning and staleness"
   - id: leak-guard
     resource: ../../tools/agents/tests/leak-guard.mjs
     title: "Adapter suites leave no handover behind"
@@ -67,7 +70,7 @@ harness set because its own compaction resumed it in closure (Codex, Droid) is t
 checkpoint, and a stale one whose handover is incomplete; a complete handover that was verified before
 the tree moved still compacts, and owes `closure_owed` until a fresh receipt, because the gate admits
 only the checkpoint command that could refresh it. Only closure work
-(docs/task/handover edits and fixed verification commands) remains available. At an observed
+(reads, docs/task/handover edits and fixed verification commands) remains available. At an observed
 390k closure keeps exactly that set (code stays frozen): the checkpoint runs `doc-links --diff`
 and, in the team flow, requires `work/current.md`, so narrowing it to the handover left a doc a check
 named unrepairable before compaction. Stop is refused, and the message asks for the handover and
@@ -92,9 +95,19 @@ including the documented nested `subagents/agent-<id>.jsonl` layout and a workfl
 the child; it never reads the parent's counters or changes the parent's stop state. Child
 handover/checkpoint commands use the separate key printed by the guard.
 
+Claude Code compacts natively at 340k, the same size as the alert, so there the compaction can land
+right after the alert, before the handover is written. The handover is then written after it from the
+harness summary, and the closure is owed (`closure_owed`) until its checkpoint passes. One live
+desktop-app session in an adopting project took exactly that path on 2026-11-26 and recovered with
+nothing lost. A **300k notice** therefore comes first. It is sent once per climb, at the first tool or
+prompt event at or over 300k, and it refuses nothing. It creates the handover skeleton and asks for
+it to be filled while the agent still holds the detail. A fall back under 300k re-arms it.
+
 Before any compaction, fill `work/handovers/<session-id>.md`, update `work/current.md` and affected
 docs, and run `python3 tools/context/budget.py checkpoint --session <id> --base <git-ref> --verify`
-(`--base` only under git; a plain folder skips the diff and task-state checks).
+(`--base` only under git; a plain folder skips the diff and task-state checks). The handover records
+what a compaction summary drops: the owner's rules and decisions, the exact next commands and the
+evidence ids. Each skeleton section names what it wants after its `TODO:`.
 The command runs knowledge/link/health checks and binds readiness to the current source diff
 and handover hash. Later edits invalidate it. A refused check names the check and lists every
 `RULE …`/`FAIL …` line it printed, whole and one per line (past 50 the rest are counted), so the agent
@@ -107,16 +120,33 @@ Local mode (the default: `aeion.mode` unset or not `team`, read with `--local` s
 global config do not count) keeps no `work/current.md` entry, so its checkpoint
 does not require one. During closure a command the shell cannot parse is denied, never a stop.
 Closure admits edits to any Markdown file in the project, so a project's own docs can be updated,
-and never a code file. The checkpoint is admitted from any working directory when its path resolves
+and never a code file. Reads stay open, so the handover can describe live state. That covers Read,
+Grep and Glob, a background task's output (`TaskOutput`, `BashOutput`) and plain `git status`, `log`,
+`show` and `diff`. It also covers the browser reads of the page already open (`find`, `read_page`,
+`get_page_text`, `tabs_context`, console and network reads, and `computer` screenshots and zooms). A
+git read that writes a file (`--output`), runs a program (`--ext-diff`) or reads outside the repository
+(`--no-index`) stays closed. So do navigation, clicks and typing. The checkpoint is admitted from any working directory when its path resolves
 to this root's `budget.py` (relative to the shell's folder, absolute, or after a `cd <root> &&`
 prefix), and a bare `cd <root>` is admitted; any other `cd`, chain or session is denied. The
 handover has the exact lines `## Scope`, `## Completed`, `## Remaining`, `## Constraints` and
 `## Evidence`; the 340k and 390k messages name the checkpoint command and those lines, and a
 refused checkpoint names each missing heading and any remaining TODO.
-The skeleton appears only when closure needs it (the 340k alert, the 390k forced closure, a refused
-compaction or the first checkpoint command), so ordinary sessions and subagents leave none; replace each TODO. Keep outcomes, remaining
+The skeleton appears only when closure needs it (the 300k notice, the 340k alert, the 390k forced
+closure, a refused compaction or the first checkpoint command), so ordinary sessions and subagents
+leave none; replace each TODO. Keep outcomes, remaining
 work, constraints and evidence concise. These local handovers are ignored by Git; durable facts
 belong in Knowledge. After compaction the same file is the recovery pointer.
+
+A handover is **behind** when HEAD or `work/current.md` moved past the checkpoint that verified its
+bytes. A verified checkpoint records HEAD, `work/current.md` and the handover in the ignored
+`.aeion/context/<session>-handover.json`, which outlives the compaction. Closure saves the handover
+before `work/current.md`, so the save time alone would call a just-verified handover behind. A
+handover edited since, or never verified, is compared by the time it was last saved instead. Session
+start says so for this session's own handover, and so does the sign-off, once, at Stop. A skeleton nobody wrote into (every line under the title a
+heading or a `TODO`) holds nothing. Session start deletes those older than seven days, and closure
+writes a fresh one when it needs one. `repo-health` warns, and never fails, past 20 of them. The
+adapter test suites remove what their own sessions write and fail on any other new skeleton
+([leak guard](../../tools/agents/tests/leak-guard.mjs)).
 
 Startup and the first prompt allow a native bootstrap before usage exists. All later work
 requires a positive native observation. A bounded retry waits for asynchronous transcript writes;
@@ -139,7 +169,10 @@ result or response may cross a threshold before another hook runs. `tools/contex
 therefore refuses execution rather than advertising unsupported strict protection. Codex, OpenCode and Pi apply the same rule through `tools/agents/hook.py`, from the context size
 each harness measures; see [compatibility](agent-compatibility.md). A Pi settlement that still owes
 closure is continued three times, then settles with the reason shown instead of repeating one alert.
-A live Claude 340k/390k long-session run remains unverified.
+A live Claude 340k run has been reported once, by an adopting project on 2026-11-26. It ran in the
+desktop app, which loads `.claude/settings.json` (the hooks and `autoCompactWindow`) without
+`tools/context/run`. It compacted, resumed in the same session and verified its checkpoint, through
+the handover-after-compaction path above. The 390k path remains unverified live.
 
 The [2026-10-26 OpenCode experiment](../references/opencode-context-qualification.md) exercised a
 real paid DeepSeek V4.1 Flash call with 278,859 input tokens and a native refusal after a tool result

@@ -99,7 +99,11 @@ The same hook suite tests [bounded intake](../policies/bounded-intake.md), inclu
 thresholds, misleading limiters and preserved native edit/range fields. SessionStart adds two
 short intake instructions and the flow mode within its existing 25-line cap. In the team flow it
 names git hooks that are off (`core.hooksPath` not `tools/git-hooks`) and team work on `main`; past
-six changed paths or open tasks it lists five and says how many more.
+six changed paths or listed tasks it lists five and says how many more. It lists the moving tasks and
+counts the `WAITING-OWNER` and `BACKLOG` ones with the date the oldest was last changed. An entry's
+date is its heading line's last commit (`git blame`), and one unchanged for 30 days shows that date.
+It also removes unfilled handover skeletons older than seven days and says when this session's
+handover is behind ([context safety](context-safety.md)); the Stop sign-off says so once too.
 
 The flow mode is a per-clone Git setting, read from the repository's local config only
 (`git config --local`; includes and the global config do not count). Local mode is the default

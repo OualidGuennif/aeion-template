@@ -159,10 +159,12 @@ Deployment remains the adopting project's own guarded procedure. Æion Template 
 
 ### Context and recovery
 
-In the Claude profile, native auto-compaction is enabled at 340k. The state machine starts RUNNING; observing 340k
+In the Claude profile, native auto-compaction is enabled at 340k. The state machine starts RUNNING; a
+300k notice (once per climb, advisory) asks for the handover while the detail is in context, because
+Claude compacts at the same 340k that raises the alert. Observing 340k
 latches HANDOVER_REQUIRED and emits one alert to user and agent. Code/subtask tools are refused;
-closure docs, `work/current.md` and fixed check commands remain, at 390k (COMPACT_REQUIRED) too,
-because the checkpoint verifies them. A checkpoint validates handover sections, Knowledge,
+reads (files, background output, plain git reads, browser page reads), closure docs, `work/current.md`
+and fixed check commands remain, at 390k (COMPACT_REQUIRED) too, because the checkpoint verifies them. A checkpoint validates handover sections, Knowledge,
 doc links, repository health and current task updates, then hashes source and handover bytes.
 Any later source or handover change invalidates readiness. An observed size back under 340k ends the
 latch, because a harness that compacts without the adapter seeing its compact SessionStart (dsh does)

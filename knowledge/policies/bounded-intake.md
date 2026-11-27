@@ -62,8 +62,9 @@ stops at 64 KiB.
 Token feedback (`.claude/hooks/token-feedback.py`) never refuses. Keep reasoning private and use
 tools directly; do not emit optional progress narration or intermediate JSON notes. After a tool
 call the hook adds one line of context, at most once per turn, when the turn holds visible prose
-or JSON notes before or between tool calls. It tolerates one status line of at most 100 characters
-for harnesses that require it, and excludes the final answer. It also names a
+or JSON notes before or between tool calls. It tolerates a status line of at most 100 characters:
+the turn's first one, then one per five minutes by the transcript's timestamps, because a harness
+may ask for one and the Claude app asks again on a long step. It excludes the final answer. It also names a
 Write that resent 200+ lines of an existing file where Edit would send only the change. Stop records
 each turn's narration in `.aeion/context/narration-<session>.json`. It reads Claude Code and Codex
 transcript shapes from a bounded tail, never through a symlink; any other shape or error is silence.

@@ -1022,7 +1022,8 @@ if recursive:
 # Environment dumps hold keys.
 if "printenv" in tokens or refuses(env_dump, command):
     deny("it prints an environment, which holds keys (to search for such a word, put it in a pattern file "
-         "for grep -f; for prose, write it to a file).")
+         "for grep -f; for code or prose that mentions it, write the file with the Write or Edit tool, not a "
+         "shell heredoc).")
 if refuses(docker_inspect_dump, command):
     deny("docker inspect without a narrow --format shows the container's environment.")
 if refuses(compose_config, command):

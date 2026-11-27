@@ -19,9 +19,12 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / ".claude/hooks"))
 from secret_names import is_secret  # noqa: E402
 from project_files import git_active, project_files  # noqa: E402
+import handovers  # noqa: E402
+NOTICE = 300_000
 WARNING = 340_000
 LIMIT = 390_000
 # Every message names the thresholds from these labels, so the text never drifts from the numbers.
+NOTICE_K = f"{NOTICE // 1000}k"
 WARN_K = f"{WARNING // 1000}k"
 LIMIT_K = f"{LIMIT // 1000}k"
 MAX_TAIL = 4 * 1024 * 1024
@@ -208,18 +211,18 @@ def changed_paths(before, after, limit=5):
     return ", ".join(paths[:limit]) + (f" and {len(paths) - limit} more" if len(paths) > limit else "")
 
 
-HEADINGS = ("Scope", "Completed", "Remaining", "Constraints", "Evidence")
+HEADINGS = handovers.HEADINGS
 SHAPE = "the handover uses the exact lines " + ", ".join(f"## {h}" for h in HEADINGS)
 
 
 def handover_path(root, session):
-    return root / "work/handovers" / f"{session}.md"
+    return handovers.folder(root) / f"{session}.md"
 
 
 def ensure_handover(root, session):
     path = handover_path(root, session)
     if not path.exists():
-        atomic(path, f"# Handover {session}\n\n" + "".join(f"## {h}\nTODO\n\n" for h in HEADINGS).rstrip("\n") + "\n")
+        atomic(path, handovers.skeleton(session))
     return path
 
 
@@ -246,8 +249,12 @@ def closure_tool(root, event):
     data = event.get("tool_input", {})
     if not isinstance(data, dict):
         return False
-    if tool in {"Read", "Grep", "Glob"}:
+    # The handover must describe live state (a background run, an open page), so reading it stays open.
+    if tool in {"Read", "Grep", "Glob", "TaskOutput", "BashOutput"}:
         return True
+    if isinstance(tool, str) and tool.startswith(BROWSERS):
+        action = tool.rsplit("__", 1)[-1]
+        return action in BROWSER_READS or (action == "computer" and data.get("action") in SCREEN_READS)
     if tool in {"Edit", "Write"}:
         path = Path(data.get("file_path", "")).resolve()
         if not path.is_relative_to(root):
@@ -267,18 +274,34 @@ def closure_tool(root, event):
             words = shlex.split(command)
         except ValueError:
             return False
-        return read_call(command, words) or checkpoint_call(root, event, words)
+        return read_call(command, words) or git_read(command, words) or checkpoint_call(root, event, words)
     return False
 
 
 # Shell-only harnesses (Codex) read through these, so closure must let them read the handover and docs.
 READERS = {"cat", "head", "tail", "wc", "nl", "ls", "grep", "rg"}
+# Browser tools that only look at the page already open: navigation, clicks and typing stay frozen.
+BROWSERS = ("mcp__Claude_Browser__", "mcp__claude-in-chrome__", "mcp__remote-devices__Claude_Browser__")
+BROWSER_READS = {"find", "read_page", "get_page_text", "tabs_context", "tabs_context_mcp", "read_console_messages",
+                 "read_network_requests"}
+SCREEN_READS = {"screenshot", "zoom"}
+GIT_READS = {"status", "log", "show", "diff"}
+SHELL_OPERATORS = re.compile(r"[;&|<>`$\n*?\[{~]")
+
+
+def git_read(command, words):
+    """One plain `git status|log|show|diff`, so the handover can name commits and changes. `--output` writes a
+    file, `--ext-diff` runs a program and `--no-index` reads outside the repository: those stay closed."""
+    if len(words) < 2 or words[0] != "git" or words[1] not in GIT_READS or SHELL_OPERATORS.search(command):
+        return False
+    return not any(word.startswith(("--output", "--ext-diff", "--no-index")) or is_secret(Path(word.split(":")[-1]).name)
+                   for word in words)
 
 
 def read_call(command, words):
     """One plain read command: no shell operators or globs, no secret file, no `rg --pre` program, and `sed`
     only as `sed -n <lines>p <files>`."""
-    if not words or re.search(r"[;&|<>`$\n*?\[{~]", command) or any(is_secret(Path(word).name) for word in words):
+    if not words or SHELL_OPERATORS.search(command) or any(is_secret(Path(word).name) for word in words):
         return False
     if words[0] == "sed":
         return len(words) >= 3 and words[1] == "-n" and re.fullmatch(r"\d+(,\d+)?p", words[2]) is not None
@@ -412,6 +435,19 @@ def apply_usage(root, session, state, name, event, usage):
                     result["systemMessage"] = message
         elif state["state"] == "RECOVERING":
             state["state"] = "RUNNING"
+        # Claude compacts natively at 340k, so the alert and the compaction arrive together and the handover gets
+        # written from the summary. A notice 40k earlier asks for it while the agent still holds the detail; it
+        # refuses nothing. It is sent once per climb: a fall under 300k (a compaction) re-arms it.
+        if usage < NOTICE:
+            state.pop("notice_sent", None)
+        elif (usage < WARNING and state["state"] == "RUNNING" and not state.get("notice_sent") and not result
+              and name in {"PreToolUse", "PostToolUse", "UserPromptSubmit"}):
+            state["notice_sent"] = True
+            handover = ensure_handover(root, session)
+            message = (f"Æion Template {NOTICE_K} notice: closure starts at {WARN_K}. Fill {handover.relative_to(root)} now, "
+                       f"while you hold the detail ({SHAPE}): what a compaction summary drops, the owner's rules, the "
+                       f"exact next commands and the evidence ids. Nothing is refused yet.")
+            result = {"systemMessage": message, "hookSpecificOutput": {"hookEventName": name, "additionalContext": message}}
         # A closure the 390k stopgap deferred is still owed: the run ends with its receipt, or not at all.
         if not result and name in {"Stop", "SubagentStop"} and state.get("closure_owed") == "due" and not ready(root, session, state):
             result = stop(name, f"Æion Template {LIMIT_K}: closure is still owed; fix the failing check and verify the "
@@ -540,6 +576,7 @@ def checkpoint(root, session, base):
         # `closure_owed` stays until the next event reads this receipt: Codex and Droid leave their closure state
         # only on that event, so dropping the flag here would strand them in a closure that is already satisfied.
         atomic(file, json.dumps(state, sort_keys=True) + "\n")
+        handovers.record(root, session)
 
 
 def main():

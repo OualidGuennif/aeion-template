@@ -84,6 +84,8 @@ story goes in the commit message.
 heuristics to its documented suffix set and to
 extensionless files that start with a shebang (`#!`), excluding `test_*` files. Its JSON scorecard reports that set and how many files were checked. This is a
 structural scorecard; each project's build, linter and tests provide language-specific validation.
+It also counts the unfilled handover skeletons in the ignored `work/handovers/` and warns past 20,
+without failing, since the checkpoint runs it.
 
 ## Branch, review, release
 
@@ -98,7 +100,9 @@ tests for what changed still run.
 - Before each push of `develop`, the skill `pr-review` reviews `origin/develop..HEAD`, verifies every finding and records `Review: OK` or `Review: NOT OK` (at most five findings)
   for the exact commit in `.aeion/reviews/<sha>.md`, then posts it on the commit. The hook
   `tools/git-hooks/pre-push` (`git config core.hooksPath tools/git-hooks`) refuses a push of `develop`
-  without `Review: OK` and any direct push to `main`. CI runs only for `main` and for pull requests,
+  without `Review: OK` and any direct push to `main`. One push needs no review: a fast-forward from
+  the remote `develop` that changes only `work/current.md`, because task state is not code, and a
+  review run per status line kept the file stale. CI runs only for `main` and for pull requests,
   so pushes stay free. A loop's pull request into `develop` merges after its `Review: OK` comment and a
   green CI; then the local `develop` pulls it before new commits.
 - A release (skill `ship`): `tools/release/release <part>` bumps `VERSION` (SemVer) and dates the

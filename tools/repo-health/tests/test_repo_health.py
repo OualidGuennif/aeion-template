@@ -23,6 +23,20 @@ class RepoHealthTests(unittest.TestCase):
         shutil.copy(TOOL, self.tool)
         (self.root / ".claude/hooks").mkdir(parents=True)
         shutil.copy(FILES, self.root / ".claude/hooks/project_files.py")
+        shutil.copy(FILES.with_name("handovers.py"), self.root / ".claude/hooks/handovers.py")
+
+    def test_unfilled_handovers_warn_past_twenty_and_never_fail(self):
+        folder = self.root / "work/handovers"
+        folder.mkdir(parents=True)
+        for n in range(21):
+            (folder / f"pi-{n}.md").write_text(f"# Handover pi-{n}\n\n## Scope\nTODO\n")
+        (folder / "written.md").write_text("# Handover written\n\n## Scope\nthe task\n")
+        result = self.check_health()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("WARN 21 unfilled handover skeletons", result.stdout)
+        self.assertEqual(json.loads(self.check_health("--json").stdout)["unfilled_handovers"], 21)
+        (folder / "pi-0.md").unlink()
+        self.assertNotIn("WARN", self.check_health().stdout)
 
     def check_health(self, *args):
         return subprocess.run([sys.executable, str(self.tool), *args], cwd=self.root,
@@ -121,6 +135,7 @@ class RepoHealthTests(unittest.TestCase):
         (nested / ".claude/hooks").mkdir(parents=True)
         shutil.copy(TOOL, nested / "tools/repo-health/repo-health")
         shutil.copy(FILES, nested / ".claude/hooks/project_files.py")
+        shutil.copy(FILES.with_name("handovers.py"), nested / ".claude/hooks/handovers.py")
         (nested / "big.py").write_text("value = 1\n" * 1501)
         result = subprocess.run([sys.executable, str(nested / "tools/repo-health/repo-health"), "--json"], cwd=nested,
                                 capture_output=True, text=True, timeout=10)
