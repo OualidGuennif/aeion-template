@@ -4,6 +4,16 @@ Task state only. One entry per open task, newest first. At most 150 lines, 10 pe
 Finished tasks are deleted: the commit message and knowledge/ keep what matters.
 Status: ACTIVE, WAITING-OWNER, MEASURING, BLOCKED, BACKLOG. An entry is `## <title> — <STATUS>`, then the
 lines `- Owner decision:`, `- State:`, `- Next:` (with who), `- Blocker:`, `- Evidence:`.
+`- Owner decision:` holds the latest decision only, dated, with its commit or PR; the history stays there.
+A change to this file alone reaches `develop` without a review run (pre-push); session start lists the
+moving entries and counts the waiting ones by the age of their heading line.
+
+## Adopter feedback on compaction and work/ — ACTIVE
+- Owner decision: 2026-11-27, keep Droid's exception that holds a verified 340k handover open until its native compaction (ff74d42 builds both feedbacks).
+- State: both are built on `task/feedback-compaction-work`: the first feedback, the Droid patch merged as is (476adb6), and the Droid items that held (closure commit loop, handover size, folder sources, untracked work in repo-health, guard-bash wording, scratch folder, adopt). Nothing merged into `develop`, reviewed or pushed.
+- Next: the owner decides the merge into `develop`, the `pr-review` run and the push (who: owner, then agent).
+- Blocker: none.
+- Evidence: CHANGELOG.md Unreleased; knowledge/operations/context-safety.md; tools/template-tests
 
 ## Live aeion-framework 1.1.9 qualification of framework mode — WAITING-OWNER
 - Owner decision: 2026-11-12, framework mode is a thin client of aeion-framework 1.1.9; installs only on the owner's yes.

@@ -6,6 +6,65 @@ dates them at release time. Spec: knowledge/policies/engineering.md
 
 ## [Unreleased]
 
+## [4.1.0] - 2026-11-27
+
+- A 300k notice asks for the handover while the detail is still in context, once per climb, and
+  refuses nothing. Claude compacts natively at the same 340k that raises the alert, so before this
+  the handover was written after the compaction, from the summary.
+- Closure keeps reads open: background task output, plain `git status`/`log`/`show`/`diff`, and browser
+  reads of the open page (find, page text, console, screenshots). Writes, navigation, clicks,
+  `--output`, `--ext-diff` and `--no-index` stay closed.
+- The handover skeleton names what each section wants (the owner's rules, the exact next commands,
+  evidence ids): what a compaction summary drops, not what it already holds.
+- A handover is reported as behind when HEAD or `work/current.md` moved after it was saved: at session
+  start, and once at the Stop sign-off. Unfilled skeletons older than seven days are removed at session
+  start, and `repo-health` warns past 20 of them without failing.
+- Session start lists the moving tasks of `work/current.md` and counts the waiting ones, with the date
+  each was last changed (by `git blame` of its heading); entries unchanged for 30 days show that date.
+- A push of `develop` that only fast-forwards `work/current.md` needs no review run.
+- `- Owner decision:` holds the latest decision only, with its commit or PR (header of `work/current.md`).
+- Token feedback tolerates a short status line again every five minutes, so the Claude app's request
+  for a word on a long step no longer draws a narration warning.
+- Clearer refusals: an environment dump in a heredoc names the Write/Edit tool, and a knowledge doc
+  over 600 lines says by how many.
+- The Claude 340k path is reported live once, from the desktop app; the runbook says so, and that
+  the 390k path stays unverified.
+
+- The Pi, OpenCode and dsh test suites no longer leave handover skeletons in the real `work/handovers/`
+  (five per run). Their closure tests drive the real hook against this repository. A shared guard
+  (`tools/agents/tests/leak-guard.mjs`) now removes what the suite's own sessions wrote, and fails the
+  suite when any other new skeleton of its provider appears.
+- Droid shares the 340k/390k rule with native auto-compaction and auto-resume: `lastCallTokenUsage`
+  drives the gate, Stop allows continuation into `compactionTokenLimit: 355000` once the 340k
+  handover verifies, and compact `SessionStart` injects an auto-resume directive pointing to the handover.
+- Fix a Droid session deadlocking at 340k: every tool runs inside Droid's `Script`, which closure
+  refused, so not even the handover could be written. `Script`, `WaitForScript` and `TodoWrite` now
+  pass closure (each inner call still meets the gate; `Task` stays closed), and the adapter records the
+  docs a Droid call reads or writes at PreToolUse, since inner calls send no PostToolUse; that record
+  loads no framework brief.
+- Fix a Droid session refreezing at 340k after its verified handover: the receipt pinned the whole
+  tree, so the first edit (its own or another session's) closed code again. A handover verified inside
+  the 340k closure now keeps code open until Droid's native compaction, which owes no closure and names
+  the files changed since the receipt; 390k keeps the strict receipt.
+- Fix guard-bash refusing `cd <dir> && cat > file <<'EOF'`: a `cat` of a small literal heredoc
+  names no path, so the `cd` no longer makes it unsizable.
+- Droid sessions admit at most 4 image Reads per context epoch: Droid re-encodes each image larger
+  than its file and resends it with every call, which the file-size intake check never bounded. The
+  context docs note that Droid's meter can read past 100% from images while `lastCallTokenUsage`
+  and the 355k compaction agree.
+- Closure no longer loops on a commit: the receipt hashes the tree's bytes, not HEAD, so committing
+  verified docs keeps it, and closure admits `git add` of doc files and `git commit -m` while only docs
+  are staged. A refused call lists what closure admits and the paths changed since the last receipt.
+- The checkpoint refuses a handover over 32 KiB or with a line over 1,000 characters, so the next
+  context reads it whole under bounded intake (an adopter's had grown to 70 KB).
+- A folder in a doc's `sources` covers the files under it for the doc gate (`doc-links --for`); L3
+  still follows listed files only.
+- `repo-health` counts untracked, unignored files too, so local mode's uncommitted work is measured.
+- guard-bash names the word that reaches a secret (a dot glob, say) instead of listing every secret
+  name it knows.
+- `.aeion/tmp/` is the in-project scratch folder (AGENTS.md); the adopt skill carries over only the
+  "Adapt" entry of `work/current.md`; the Droid notes ask for one fresh, bounded task per subagent.
+
 ## [4.0.3] - 2026-11-15
 
 - A refused checkpoint lists every `RULE …`/`FAIL …` line of the failing check, whole and one per line
