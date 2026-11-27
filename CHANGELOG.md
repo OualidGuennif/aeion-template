@@ -6,6 +6,10 @@ dates them at release time. Spec: knowledge/policies/engineering.md
 
 ## [Unreleased]
 
+- The README opens with badges, what the template does and why, a table of the nine agents and their
+  hook sources, a flow diagram, a worked doc-gate example and the Æion family; the commands, links and
+  anchors are unchanged, and the update example names v4.1.0.
+
 ## [4.1.0] - 2026-11-27
 
 - A 300k notice asks for the handover while the detail is still in context, once per climb, and
