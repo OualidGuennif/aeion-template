@@ -86,8 +86,10 @@ tools/agents/template-update --ref v4.1.0 --root ../your-project
 ```
 
 It finds the release your project came from (`.aeion-template`, else the closest tag), shows the
-release notes, updates every template file you left untouched and merges the ones you edited. Your
-instructions, settings, knowledge and changelog stay yours: you get a proposal for each. The
+release notes, updates every template file you left untouched and merges the ones you edited (a
+conflict stays as it is, with a proposal). It never writes `AGENTS.md` or the merged agent settings:
+you get a proposal for each. A knowledge doc you edited is kept byte for byte and listed for review,
+and your `VERSION`, `CHANGELOG.md` and `work/` are never touched. The
 [template-update skill](.agents/skills/template-update/SKILL.md) walks your agent through it.
 
 ## Enable optional tools
