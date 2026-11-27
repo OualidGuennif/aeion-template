@@ -6,6 +6,16 @@ dates them at release time. Spec: knowledge/policies/engineering.md
 
 ## [Unreleased]
 
+## [4.1.1] - 2026-11-27
+
+- The README opens with badges, what the template does and why, a table of the nine agents and their
+  hook sources, a flow diagram, a worked doc-gate example and the Æion family; the commands, links and
+  anchors are unchanged, and the update example names v4.1.0.
+- The README corrects three claims: Devin and Antigravity have no compaction checkpoint and Grok cannot
+  refuse a compaction; `guard-bash` follows links only inside recursive searches; `template-update`
+  proposes only for `AGENTS.md`, the merged agent settings and conflicts, lists an edited knowledge doc
+  for review, and never touches `VERSION`, `CHANGELOG.md` or `work/`.
+
 ## [4.1.0] - 2026-11-27
 
 - A 300k notice asks for the handover while the detail is still in context, once per climb, and
