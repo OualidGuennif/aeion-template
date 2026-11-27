@@ -118,7 +118,9 @@ Requirements for a change, not claims about what production already satisfies.
   deliberate local bypass cannot pass.
 
 The same PreToolUse hooks also apply [bounded intake](bounded-intake.md) to recognized large
-reads/dumps. Secret refusals take precedence even when a command has a valid output limiter.
+reads/dumps. Secret refusals take precedence even when a command has a valid output limiter. A
+small literal heredoc that `cat` writes to a file is sized as text after a `cd` as well; its secret
+checks above are unchanged.
 
 ## Untrusted input
 

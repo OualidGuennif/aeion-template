@@ -1,7 +1,7 @@
 ---
 type: Runbook
 title: "Context safety and handover"
-description: "One 340k/390k rule for Claude, Codex, OpenCode, Pi, dsh and Grok: closure, verified handover, compaction, and its limits."
+description: "One 340k/390k rule for Claude, Codex, OpenCode, Pi, dsh, Grok and Droid: closure, verified handover, compaction, and its limits."
 status: stable
 review_after: 2027-01-29
 generated:
@@ -10,6 +10,10 @@ generated:
 verified:
   - at: 2026-11-06
     what: "tools/agents/tests/test_hooks.py: 65 passed; Grok's context size is signals.json contextTokensUsed, which is not the billed ledger"
+  - at: 2026-11-24
+    what: "tools/agents/tests/test_hooks.py: 73 passed; a Droid 340k handover verified in closure keeps code open after later edits until the compaction, which owes no closure; 390k stays strict"
+  - at: 2026-11-24
+    what: "tools/agents/tests/test_hooks.py: 74 passed; a live Droid transcript showed two native compactions at 355k after the 340k alerts while Droid's meter read 338%; a Droid epoch admits 4 image reads"
 sources:
   - id: budget
     resource: ../../tools/context/budget.py
@@ -64,7 +68,15 @@ harness set because its own compaction resumed it in closure (Codex, Droid) is t
 checkpoint, and a stale one whose handover is incomplete; a complete handover that was verified before
 the tree moved still compacts, and owes `closure_owed` until a fresh receipt, because the gate admits
 only the checkpoint command that could refresh it. Only closure work
-(docs/task/handover edits and fixed verification commands) remains available. At an observed
+(docs/task/handover edits and fixed verification commands) remains available. A harness tool that
+acts only through calls the gate judges one by one passes too, when its adapter marks it
+(`closure_safe`): Droid's `Script`, with `WaitForScript` and `TodoWrite`; a subagent (`Task`) stays
+closed. Without that mark a Droid session whose tools all run inside `Script` could not even write
+its handover. Droid keeps a verified 340k handover until its compaction (owner decision 2026-11-24):
+the receipt records the closure it was taken in, and once it verifies, a later edit (this session's or
+another session's in the same clone) no longer freezes code again. That compaction owes no closure,
+and its compact SessionStart names the files changed since the receipt. Droid compacts natively 15k
+later (355k), so the handover drifts little; 390k keeps the strict receipt. At an observed
 390k closure keeps exactly that set (code stays frozen): the checkpoint runs `doc-links --diff`
 and, in the team flow, requires `work/current.md`, so narrowing it to the handover left a doc a check
 named unrepairable before compaction. Stop is refused, and the message asks for the handover and
@@ -93,7 +105,7 @@ Before any compaction, fill `work/handovers/<session-id>.md`, update `work/curre
 docs, and run `python3 tools/context/budget.py checkpoint --session <id> --base <git-ref> --verify`
 (`--base` only under git; a plain folder skips the diff and task-state checks).
 The command runs knowledge/link/health checks and binds readiness to the current source diff
-and handover hash. Later edits invalidate it. A refused check names the check and lists every
+and handover hash. Later edits invalidate it, except for Droid's verified 340k handover (above). A refused check names the check and lists every
 `RULE …`/`FAIL …` line it printed, whole and one per line (past 50 the rest are counted), so the agent
 fixes them in one pass instead of retrying a bare exit status; output that names no rule keeps a
 bounded tail. Compaction is
@@ -133,7 +145,7 @@ checkpoint in the new epoch, as Codex and Droid do.
 **Guarantee:** this is checkpoint-based enforcement, not a proof of an absolute 390k ceiling.
 Claude Code exposes no qualified before-every-request admission callback here. A large tool
 result or response may cross a threshold before another hook runs. `tools/context/run --strict`
-therefore refuses execution rather than advertising unsupported strict protection. Codex, OpenCode and Pi apply the same rule through `tools/agents/hook.py`, from the context size
+therefore refuses execution rather than advertising unsupported strict protection. Codex, OpenCode, Pi, Grok and Droid apply the same rule through `tools/agents/hook.py`, from the context size
 each harness measures; see [compatibility](agent-compatibility.md). A Pi settlement that still owes
 closure is continued three times, then settles with the reason shown instead of repeating one alert.
 A live Claude 340k/390k long-session run remains unverified.
@@ -157,7 +169,15 @@ edit its own scripts/settings. Raw CLI launches outside the managed entry point 
 | OpenCode | the newest `session.step.ended` tokens (input, output, cache) | the plugin calls `session.compact` |
 | Pi | `ctx.getContextUsage().tokens` | the extension compacts at settlement in TUI/RPC; the RPC headless runner keeps the process alive for that compaction; a one-shot print/JSON run stops cleanly at the gate with the verified handover (1.9.2) |
 | dsh | `ctx.tokenMeter.measure(session).totalTokens` | the plugin compacts before the next step through the root service (headless), or runs `/compact` on idle where the web profile isolates that service inside an agent-preset group |
-| Droid | nothing (no 340k alert) | native; a compaction before the handover owes it after, as for Codex |
+| Droid | `lastCallTokenUsage` in `<session_id>.settings.json` beside the transcript | native auto-compaction at 355000 (`compactionTokenLimit` in `.factory/settings.json`) right after the 340k verified handover, resuming automatically via compact `SessionStart`; edits after that handover keep code open, and the resume names the files they changed; a compaction before the handover owes it after, as for Codex |
+
+Droid's own context meter is not that figure. On 2026-11-24 it showed "1.2M of 355K tokens, 338%"
+while `lastCallTokenUsage` stood between 340k and 355k: the 340k alert had fired five minutes
+before, and the native compaction came two minutes later, at 355k on the same count. Between the
+two compactions 27 screenshots (4.1 million base64 characters) sat in the context; text alone came to
+about 353k tokens, and counting the base64 as text gives about 1.38M, so the meter appears to count
+images as text. The hook and the compaction agree, so trust `lastCallTokenUsage`; the image budget in
+[bounded intake](../policies/bounded-intake.md) keeps screenshots from piling up.
 
 A harness reports usage after the response that asked for a tool, so the adapter keeps the last count
 until a new one arrives (0 after a compaction). A malformed count or a rollout from another session

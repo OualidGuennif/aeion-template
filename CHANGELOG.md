@@ -6,6 +6,25 @@ dates them at release time. Spec: knowledge/policies/engineering.md
 
 ## [Unreleased]
 
+- Droid shares the 340k/390k rule with native auto-compaction and auto-resume: `lastCallTokenUsage`
+  drives the gate, Stop allows continuation into `compactionTokenLimit: 355000` once the 340k
+  handover verifies, and compact `SessionStart` injects an auto-resume directive pointing to the handover.
+- Fix a Droid session deadlocking at 340k: every tool runs inside Droid's `Script`, which closure
+  refused, so not even the handover could be written. `Script`, `WaitForScript` and `TodoWrite` now
+  pass closure (each inner call still meets the gate; `Task` stays closed), and the adapter records the
+  docs a Droid call reads or writes at PreToolUse, since inner calls send no PostToolUse; that record
+  loads no framework brief.
+- Fix a Droid session refreezing at 340k after its verified handover: the receipt pinned the whole
+  tree, so the first edit (its own or another session's) closed code again. A handover verified inside
+  the 340k closure now keeps code open until Droid's native compaction, which owes no closure and names
+  the files changed since the receipt; 390k keeps the strict receipt.
+- Fix guard-bash refusing `cd <dir> && cat > file <<'EOF'`: a `cat` of a small literal heredoc
+  names no path, so the `cd` no longer makes it unsizable.
+- Droid sessions admit at most 4 image Reads per context epoch: Droid re-encodes each image larger
+  than its file and resends it with every call, which the file-size intake check never bounded. The
+  context docs note that Droid's meter can read past 100% from images while `lastCallTokenUsage`
+  and the 355k compaction agree.
+
 ## [4.0.3] - 2026-11-15
 
 - A refused checkpoint lists every `RULE …`/`FAIL …` line of the failing check, whole and one per line

@@ -9,6 +9,8 @@ generated:
 verified:
   - at: 2026-11-12
     what: "tools/framework/tests/test_axiom_api.py: 16 passed; shell reads load briefs, retain unserved refusals and share the eight-ID cap"
+  - at: 2026-11-23
+    what: "tools/agents/tests/test_hooks.py: 71 passed; live Droid session in enforce: docs read inside Script opened an edit of tools/context/budget.py"
 sources:
   - id: gate
     resource: ../../.claude/hooks/doc-gate.py
@@ -52,6 +54,10 @@ asks for the reading before it, when the doc can still shape the change.
   using the tool's declared working directory. A multi-file command shares the eight-ID cap and
   two-and-a-half-second deadline; another read loads any remaining IDs.
 - **PostToolUse Edit, MultiEdit, Write, NotebookEdit** of a `.md` file: recorded, the agent wrote it.
+- **PreToolUse in Droid**: calls made inside Droid's `Script` send no PostToolUse (live 2026-11-23), so
+  the adapter records a Read, a shell read or a `.md` write once every guard let the call through. That
+  record (`docs_only`) remembers docs only: no framework brief loads and no warn line is written, since
+  the call has not run yet.
 - **PreToolUse Edit, MultiEdit, Write, NotebookEdit** (`apply_patch` through the adapter, once per path).
 
 ## Outputs
@@ -80,8 +86,8 @@ asks for the reading before it, when the doc can still shape the change.
 | --- | --- |
 | 1, 3, 4 | `.claude/hooks/test_hooks.py` (`doc gate` cases) |
 | 2 | `.claude/hooks/test_hooks.py` (`doc gate forgets at session start`) |
-| 5 | `tools/agents/tests/test_hooks.py` (the gate through the adapter: Read, shell read, apply_patch) |
-| 5, framework mode | `tools/framework/tests/test_axiom_api.py` (`test_shell_reads_load_briefs_before_an_edit`, `test_shell_reads_keep_unserved_requirements_closed`, `test_a_shell_read_shares_the_brief_budget_across_files`) |
+| 5 | `tools/agents/tests/test_hooks.py` (the gate through the adapter: Read, shell read, apply_patch; `test_droid_reads_open_the_doc_gate_without_a_post_tool_use`) |
+| 5, framework mode | `tools/framework/tests/test_axiom_api.py` (`test_shell_reads_load_briefs_before_an_edit`, `test_shell_reads_keep_unserved_requirements_closed`, `test_a_shell_read_shares_the_brief_budget_across_files`, `test_a_read_recorded_before_it_runs_loads_no_brief`) |
 
 ## Determinism
 
@@ -104,3 +110,6 @@ about a tenth of a second on this repository, inside the hook's three seconds; n
 - Whether the doc was understood, or read whole: a range read counts, as bounded intake asks for ranges.
 - Shell expansion or a `cd` inside a command: only literal paths and the tool's declared working
   directory are used.
+- Droid's `Script` in framework mode: a code read there is recorded before it runs, so its `@req`
+  briefs never load and the file stays closed; read it outside a `Script`, or the owner switches the
+  gate to `warn`. A read recorded that way that then fails (a missing file) still counts.
