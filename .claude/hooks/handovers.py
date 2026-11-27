@@ -5,6 +5,8 @@ import json
 import subprocess
 import time
 
+from project_files import git_active
+
 HEADINGS = ("Scope", "Completed", "Remaining", "Constraints", "Evidence")
 # Each prompt asks for what a compaction summary drops, so the handover does not restate the summary.
 PROMPTS = {"Scope": "the task, what the owner asked and what is out of scope",
@@ -30,17 +32,29 @@ def unfilled(path):
 
 
 def unfilled_files(root):
-    found = folder(root)
-    return [path for path in sorted(found.glob("*.md")) if path.is_file() and not path.is_symlink() and unfilled(path)]
+    found = []
+    for path in sorted(folder(root).glob("*.md")):
+        # Another session starting at the same time may prune it first.
+        try:
+            if path.is_file() and not path.is_symlink() and unfilled(path):
+                found.append(path)
+        except OSError:
+            continue
+    return found
 
 
 def prune(root, days=PRUNE_DAYS, now=None):
     """Delete unfilled skeletons older than `days`: they hold nothing, and closure writes a fresh one when needed."""
     cutoff = (now or time.time()) - days * 86400
-    old = [path for path in unfilled_files(root) if path.stat().st_mtime < cutoff]
-    for path in old:
-        path.unlink()
-    return len(old)
+    removed = 0
+    for path in unfilled_files(root):
+        try:
+            if path.stat().st_mtime < cutoff:
+                path.unlink()
+                removed += 1
+        except FileNotFoundError:
+            continue
+    return removed
 
 
 def digest(path):
@@ -48,6 +62,9 @@ def digest(path):
 
 
 def head(root):
+    # A plain folder nested in another repository has no HEAD of its own; git would answer for the parent.
+    if not git_active(root):
+        return ""
     found = subprocess.run(["git", "rev-parse", "--verify", "--quiet", "HEAD"], cwd=root, capture_output=True,
                            text=True, check=False)
     return found.stdout.strip()
@@ -82,8 +99,8 @@ def behind(root, path):
     saved = path.stat().st_mtime
     moved = []
     committed = subprocess.run(["git", "log", "-1", "--format=%ct"], cwd=root, capture_output=True, text=True,
-                               check=False)
-    if committed.returncode == 0 and committed.stdout.strip().isdigit() and int(committed.stdout.strip()) > saved:
+                               check=False) if git_active(root) else None
+    if committed and committed.returncode == 0 and committed.stdout.strip().isdigit() and int(committed.stdout.strip()) > saved:
         moved.append("HEAD")
     work = root / "work/current.md"
     if work.is_file() and work.stat().st_mtime > saved:

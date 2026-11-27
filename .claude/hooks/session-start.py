@@ -3,6 +3,7 @@
 """SessionStart hook: at most 25 lines of facts — the flow mode, uncommitted changes, recent commits,
 open tasks and the health scorecard — so a new or resumed session starts from evidence."""
 import json
+import os
 import re
 import select
 import subprocess
@@ -42,11 +43,16 @@ def heading_ages(heading_lines):
     return {number: times.get(commit, time.time()) for number, commit in at.items()}
 
 
-# The hook event names the session. Run by hand, or under a parent whose stdin stays open and silent, there is
-# none, and waiting for one would hang the start: read only what is already there.
+# The hook event names the session. Run by hand, or under a parent whose stdin stays open, waiting for EOF would
+# hang the start: read chunks as they arrive, until EOF or 0.2 s of silence.
 try:
-    ready = not sys.stdin.isatty() and select.select([sys.stdin], [], [], 0.2)[0]
-    event = json.loads(sys.stdin.read(1024 * 1024) or "{}") if ready else {}
+    data = b""
+    while not sys.stdin.isatty() and len(data) < 1024 * 1024 and select.select([sys.stdin], [], [], 0.2)[0]:
+        chunk = os.read(sys.stdin.fileno(), 65536)
+        if not chunk:
+            break
+        data += chunk
+    event = json.loads(data or b"{}")
 except (ValueError, OSError):
     event = {}
 

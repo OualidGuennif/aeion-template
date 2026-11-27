@@ -814,6 +814,17 @@ expect("session-start says the session's handover is behind", result, 0,
 result, _ = session_start_with_history({"session_id": "another-session"})
 if "is behind" in result.stdout:
     failures.append("session-start reported another session's handover as behind")
+# A parent that writes the event and keeps stdin open must not hold the start.
+opened = subprocess.Popen([sys.executable, str(HOOKS / "session-start.py")], stdin=subprocess.PIPE,
+                          stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+opened.stdin.write(b'{"session_id": "open-stdin"}')
+opened.stdin.flush()
+try:
+    opened.wait(timeout=15)
+except subprocess.TimeoutExpired:
+    opened.kill()
+    failures.append("session-start hung on a stdin left open after the event")
+opened.stdin.close()
 
 expect("session-start names git hooks that are off", session_start("team"), 0,
        "git hooks: off; enable with git config core.hooksPath tools/git-hooks")

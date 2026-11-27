@@ -8,6 +8,8 @@ generated:
   by: aeion-template/1.1
   at: 2026-11-06
 verified:
+  - at: 2026-11-27
+    what: "tools/template-tests PASS; test_budget.py covers the 300k notice, closure reads, pruning and a behind handover; work/handovers/ held 20 files before and after the run"
   - at: 2026-11-06
     what: "tools/agents/tests/test_hooks.py: 65 passed; Grok's context size is signals.json contextTokensUsed, which is not the billed ledger"
 sources:

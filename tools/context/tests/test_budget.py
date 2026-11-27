@@ -538,6 +538,20 @@ class BudgetTests(unittest.TestCase):
         (self.root / "work/current.md").write_text("# Current work\n")
         self.assertEqual(handovers.behind(self.root, written), ["work/current.md"])
 
+    def test_handovers_survive_a_vanished_file_and_ignore_a_parent_repository(self):
+        handovers = budget.handovers
+        # A plain folder nested in this repository: git would answer for the parent, whose commits are newer.
+        nested = self.root / "plain"
+        (nested / "work/handovers").mkdir(parents=True)
+        written = nested / "work/handovers/s.md"
+        written.write_text("# Handover s\n\n## Scope\nthe task\n")
+        os.utime(written, (1, 1))
+        self.assertEqual(handovers.head(nested), "")
+        self.assertEqual(handovers.behind(nested, written), [])
+        # Two sessions starting together: the other one pruned the skeleton first.
+        with patch.object(handovers, "unfilled_files", return_value=[nested / "work/handovers/gone.md"]):
+            self.assertEqual(handovers.prune(nested), 0)
+
     def test_checkpoint_is_admitted_from_any_folder_and_only_for_this_root(self):
         # A shell left in a subfolder at the alert must still reach this root's checkpoint.
         self.observe(340000)
