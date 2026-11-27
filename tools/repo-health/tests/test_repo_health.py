@@ -25,6 +25,12 @@ class RepoHealthTests(unittest.TestCase):
         shutil.copy(FILES, self.root / ".claude/hooks/project_files.py")
         shutil.copy(FILES.with_name("handovers.py"), self.root / ".claude/hooks/handovers.py")
 
+    def repository(self):
+        """A repository whose only untracked files are the copied tool, which git ignores: the check counts
+        untracked files too, and the fixture's own tooling is not the project under test."""
+        subprocess.run(["git", "init", "-q", str(self.root)], check=True)
+        (self.root / ".git/info/exclude").write_text("tools/\n.claude/\n")
+
     def test_unfilled_handovers_warn_past_twenty_and_never_fail(self):
         folder = self.root / "work/handovers"
         folder.mkdir(parents=True)
@@ -155,7 +161,7 @@ class RepoHealthTests(unittest.TestCase):
         self.assertIn("repo-health:", result.stdout)
 
     def test_accented_source_is_checked_against_the_size_cap(self):
-        subprocess.run(["git", "init", "-q", str(self.root)], check=True)
+        self.repository()
         source = self.root / "café.py"
         source.write_text("value = 1\n" * 1501)
         subprocess.run(["git", "add", "café.py"], cwd=self.root, check=True)
@@ -168,7 +174,7 @@ class RepoHealthTests(unittest.TestCase):
 
 
     def test_extensionless_script_is_checked_and_plain_text_is_not(self):
-        subprocess.run(["git", "init", "-q", str(self.root)], check=True)
+        self.repository()
         (self.root / "refresh").write_text("#!/usr/bin/env python3\n" + "value = 1\n" * 1501)
         (self.root / "LICENSE").write_text("text\n" * 1501)
         subprocess.run(["git", "add", "refresh", "LICENSE"], cwd=self.root, check=True)
@@ -176,6 +182,19 @@ class RepoHealthTests(unittest.TestCase):
         self.assertEqual(result.returncode, 1)
         card = json.loads(result.stdout)
         self.assertEqual(card["files_over_1500_lines"], ["refresh"])
+        self.assertEqual(card["source_files_checked"], 1)
+
+    def test_untracked_work_is_checked_too(self):
+        # Local mode keeps the work uncommitted: a report on tracked files alone read "0 big files" over it.
+        self.repository()
+        (self.root / "app").mkdir()
+        (self.root / "app/big.py").write_text("value = 1\n" * 1501)
+        (self.root / "build.log").write_text("line\n" * 1501)
+        (self.root / ".gitignore").write_text("*.log\n")
+        result = self.check_health("--json")
+        self.assertEqual(result.returncode, 1)
+        card = json.loads(result.stdout)
+        self.assertEqual(card["files_over_1500_lines"], ["app/big.py"])
         self.assertEqual(card["source_files_checked"], 1)
 
 

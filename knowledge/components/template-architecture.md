@@ -163,9 +163,9 @@ In the Claude profile, native auto-compaction is enabled at 340k. The state mach
 300k notice (once per climb, advisory) asks for the handover while the detail is in context, because
 Claude compacts at the same 340k that raises the alert. Observing 340k
 latches HANDOVER_REQUIRED and emits one alert to user and agent. Code/subtask tools are refused;
-reads (files, background output, plain git reads, browser page reads), closure docs, `work/current.md`
-and fixed check commands remain, at 390k (COMPACT_REQUIRED) too, because the checkpoint verifies them. A checkpoint validates handover sections, Knowledge,
-doc links, repository health and current task updates, then hashes source and handover bytes.
+reads (files, background output, plain git reads, browser page reads), closure docs, `work/current.md`,
+a commit of staged docs and fixed check commands remain, at 390k (COMPACT_REQUIRED) too, because the checkpoint verifies them. A checkpoint validates handover sections and size, Knowledge,
+doc links, repository health and current task updates, then hashes the tree's bytes (not HEAD, so a commit of them keeps it) and the handover's.
 Any later source or handover change invalidates readiness, except that Droid keeps a 340k handover
 verified inside its closure until its native compaction 15k later ([context safety](../operations/context-safety.md)).
 An observed size back under 340k ends the

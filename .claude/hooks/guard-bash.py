@@ -101,24 +101,30 @@ def shell_words(text):
 
 
 def mentioned_secrets(tokens, shell_tokens, bases, unquoted_globs):
-    names = {PurePosixPath(t).name for t in tokens if is_secret(PurePosixPath(t).name)}
+    """The secret names a command reaches, and the words that reach them: a refusal that listed every secret
+    name the guard knows, without the word at fault, left a 12-line command to guess."""
+    words = {t for t in tokens if is_secret(PurePosixPath(t).name)}
+    names = {PurePosixPath(t).name for t in words}
     # Only the shell expands braces and globs; a heredoc body fed to a program is text.
     for token, unquoted in zip(shell_tokens, unquoted_globs):
         for word in (b for g in group_variants(token) for b in brace_variants(g)):
             name = PurePosixPath(word).name
             if is_secret(name):
                 names.add(name)
+                words.add(token)
             elif any(char in word for char in "*?["):
                 # A glob is judged by the secret it names wherever it expands, since a variable, a command
                 # substitution or a cd can hide its directory; and by the files it expands to here. A
                 # quoted pattern ('key.*') is a regex or prose the shell never expands, so only the files.
-                if unquoted:
-                    names |= named_secrets(name)
+                found = set(named_secrets(name)) if unquoted else set()
                 pattern = shell_pattern(os.path.expanduser(word))
                 for base in bases:
                     matches = glob.glob(pattern, root_dir=None if os.path.isabs(pattern) else base)
-                    names |= {PurePosixPath(m).name for m in matches if is_secret(PurePosixPath(m).name)}
-    return sorted(names)
+                    found |= {PurePosixPath(m).name for m in matches if is_secret(PurePosixPath(m).name)}
+                if found:
+                    names |= found
+                    words.add(token)
+    return sorted(names), sorted(words)
 
 
 # Environment dumps hold keys. The command is split into simple commands (newlines, ; & | && || and
@@ -962,7 +968,7 @@ try:
     secret_tokens = without_patterns(secret_tokens, patterns, TOKEN_SPLIT)[0]
     shell_tokens, unquoted_globs = without_patterns(shell_tokens, patterns, SHELL_SPLIT, unquoted_globs)
     bases = directories(command, workdir if isinstance(workdir, str) else ".")
-    secrets = mentioned_secrets(secret_tokens, shell_tokens, bases, unquoted_globs)
+    secrets, culprits = mentioned_secrets(secret_tokens, shell_tokens, bases, unquoted_globs)
 except (OSError, ValueError, RecursionError):
     deny("the files a glob names could not be verified; name the files explicitly.")
 
@@ -1006,8 +1012,10 @@ if os.environ.get("AEION_LOOP_READ_ONLY") == "1":
 # Secret files: reading one is refused; any other mention is a human's call.
 if secrets:
     if READERS & set(tokens):
-        deny(f"it reads a secret file ({', '.join(secrets)}). Secrets are never read or printed "
-             "(to find where a name is mentioned, make it the search pattern: grep -rn <name> <folder>).")
+        named = ", ".join(f"`{word}`" for word in culprits)
+        deny(f"it reads a secret file: {named} can name {', '.join(secrets)}. Secrets are never read or printed "
+             "(to find where a name is mentioned, make it the search pattern: grep -rn <name> <folder>; to size or "
+             "list hidden folders, name them instead of a glob).")
     ask(f"The command mentions a secret file ({', '.join(secrets)}).")
 
 # A recursive search reads every file under its folders, hidden and gitignored ones too.

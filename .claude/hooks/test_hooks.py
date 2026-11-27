@@ -247,6 +247,13 @@ glob_dir = Path(tempfile.mkdtemp())
 for command in ["head .env*", "grep -r . .e*", "base64 .en?", "tail .[e]nv", f"head {glob_dir}/.e*"]:
     expect(f"bash deny glob: {command}", run_hook("guard-bash.py", {"command": command, "workdir": str(glob_dir)}), 2)
 expect("bash ask: a glob that names a secret", run_hook("guard-bash.py", {"command": "ls .e*", "workdir": str(glob_dir)}), 0, '"ask"')
+# The refusal names the word at fault: a list of every secret name left a long command to guess.
+expect("bash deny names the glob at fault",
+       run_hook("guard-bash.py", {"command": "du -sk src .[a-z]* | tail -2", "workdir": str(glob_dir)}), 2,
+       stderr_has="`.[a-z]*` can name .credentials.json")
+expect("bash deny names the literal word at fault",
+       run_hook("guard-bash.py", {"command": "head -n 5 notes.md config/.env", "workdir": str(glob_dir)}), 2,
+       stderr_has="`config/.env` can name .env.")
 for command in ["ls *", "head *.md", "wc -l .x*", "rg 'x.*y$' .", "ls src/{a,b}.py"]:
     expect(f"bash allow glob: {command}", run_hook("guard-bash.py", {"command": command, "workdir": str(glob_dir)}), 0)
 # The glob follows a cd, braces expand, and an unknown directory refuses.

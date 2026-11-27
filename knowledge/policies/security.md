@@ -66,7 +66,8 @@ Requirements for a change, not claims about what production already satisfies.
   `.gitignore`, so a Grep over a folder (its `path`, or the working folder when it names none) is
   refused when a file it would read is a secret, or when the folder holds more than 10,000 entries
   to check. The ordinary-name list is a heuristic: an odd glob such as `*2` matches only a
-  certificate name and is refused.
+  certificate name and is refused. The refusal names the word at fault and the secrets it can reach,
+  so a long command needs no guessing.
   A search pattern is text: the pattern of a bare `grep`, `egrep`, `fgrep`, `rg` or `git grep` (its
   first operand, or each `-e` value) may name a secret when the shell passes it as typed (no glob,
   `$`, backtick, brace, tilde or backslash, unless quotes surely stay quotes). A file operand, a `-f`

@@ -82,7 +82,8 @@ story goes in the commit message.
 `repo-health` caps the top-level folders at nine, not counting a folder release archives leave out
 (`/name export-ignore` in `.gitattributes`). It applies source-size/comment
 heuristics to its documented suffix set and to
-extensionless files that start with a shebang (`#!`), excluding `test_*` files. Its JSON scorecard reports that set and how many files were checked. This is a
+extensionless files that start with a shebang (`#!`), excluding `test_*` files. It reads tracked and
+untracked files alike, ignored ones aside, because local mode keeps the work uncommitted. Its JSON scorecard reports that set and how many files were checked. This is a
 structural scorecard; each project's build, linter and tests provide language-specific validation.
 It also counts the unfilled handover skeletons in the ignored `work/handovers/` and warns past 20,
 without failing, since the checkpoint runs it.

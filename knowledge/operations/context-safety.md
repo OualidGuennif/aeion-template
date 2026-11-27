@@ -9,9 +9,9 @@ generated:
   at: 2026-11-06
 verified:
   - at: 2026-11-27
+    what: "tools/template-tests PASS after the Droid patch merge; test_budget.py: a commit of verified docs keeps the receipt, closure commits staged docs only, a handover over 32 KiB is refused"
+  - at: 2026-11-27
     what: "tools/template-tests PASS; test_budget.py covers the 300k notice, closure reads, pruning and a behind handover; work/handovers/ held 20 files before and after the run"
-  - at: 2026-11-24
-    what: "tools/agents/tests/test_hooks.py: 73 passed; a Droid 340k handover verified in closure keeps code open after later edits until the compaction, which owes no closure; 390k stays strict"
   - at: 2026-11-24
     what: "tools/agents/tests/test_hooks.py: 74 passed; a live Droid transcript showed two native compactions at 355k after the 340k alerts while Droid's meter read 338%; a Droid epoch admits 4 image reads"
 sources:
@@ -120,8 +120,11 @@ docs, and run `python3 tools/context/budget.py checkpoint --session <id> --base 
 (`--base` only under git; a plain folder skips the diff and task-state checks). The handover records
 what a compaction summary drops: the owner's rules and decisions, the exact next commands and the
 evidence ids. Each skeleton section names what it wants after its `TODO:`.
-The command runs knowledge/link/health checks and binds readiness to the current source diff
-and handover hash. Later edits invalidate it, except for Droid's verified 340k handover (above). A refused check names the check and lists every
+The command runs knowledge/link/health checks and binds readiness to the bytes of the tree (tracked
+and untracked files, ignored ones and `work/handovers/` aside) and the handover hash, never to the
+commit HEAD names: committing the verified bytes, or deleting a file and committing the deletion,
+keeps the receipt, so the team flow can commit its docs without re-entering closure (adopters
+reported that loop). Later edits invalidate it, except for Droid's verified 340k handover (above). A refused check names the check and lists every
 `RULE …`/`FAIL …` line it printed, whole and one per line (past 50 the rest are counted), so the agent
 fixes them in one pass instead of retrying a bare exit status; output that names no rule keeps a
 bounded tail. Compaction is
@@ -134,7 +137,9 @@ does not require one. During closure a command the shell cannot parse is denied,
 Closure admits edits to any Markdown file in the project, so a project's own docs can be updated,
 and never a code file. Reads stay open, so the handover can describe live state. That covers Read,
 Grep and Glob, a background task's output (`TaskOutput`, `BashOutput`) and plain `git status`, `log`,
-`show` and `diff`. It also covers the browser reads of the page already open (`find`, `read_page`,
+`show` and `diff`, and the team flow's commit of its docs: `git add` of doc files (Markdown, `work/`,
+the root docs; no flag, glob or folder) and `git commit -m` (or `-q`, `--message`; no `--amend`, `-a`
+or hook skipping) while every staged path is one closure could edit. It also covers the browser reads of the page already open (`find`, `read_page`,
 `get_page_text`, `tabs_context`, console and network reads, and `computer` screenshots and zooms). A
 git read that writes a file (`--output`), runs a program (`--ext-diff`) or reads outside the repository
 (`--no-index`) stays closed. So do navigation, clicks and typing. The checkpoint is admitted from any working directory when its path resolves
@@ -142,7 +147,10 @@ to this root's `budget.py` (relative to the shell's folder, absolute, or after a
 prefix), and a bare `cd <root>` is admitted; any other `cd`, chain or session is denied. The
 handover has the exact lines `## Scope`, `## Completed`, `## Remaining`, `## Constraints` and
 `## Evidence`; the 340k and 390k messages name the checkpoint command and those lines, and a
-refused checkpoint names each missing heading and any remaining TODO.
+refused checkpoint names each missing heading and any remaining TODO. A handover over 32 KiB, or
+with a line over 1,000 characters, is no checkpoint either: the next context must read it whole
+under [bounded intake](../policies/bounded-intake.md)'s 64 KiB, and an adopter's grew to 70 KB. A
+refused call lists what closure admits and, when a receipt exists, the paths changed since it.
 The skeleton appears only when closure needs it (the 300k notice, the 340k alert, the 390k forced
 closure, a refused compaction or the first checkpoint command), so ordinary sessions and subagents
 leave none; replace each TODO. Keep outcomes, remaining

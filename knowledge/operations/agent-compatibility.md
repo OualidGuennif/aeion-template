@@ -211,6 +211,10 @@ with one line naming a missing agent binary and the setup link, exit 1.
   `work/current.md`, docs, checkpoint) until the checkpoint passes. Closure judges the calls made
   inside Droid's `Script`, each of which reaches the adapter on its own PreToolUse: the `Script`
   wrapper, `WaitForScript` and `TodoWrite` pass, and a subagent (`Task`) stays closed.
+  A Droid subagent is a session of its own, with its own 340k closure: a resumed subagent was
+  refused before its first edit because its earlier context already counted. Give each subagent one
+  fresh task of bounded size (a page, one refactor step), never resume a large one, and verify each
+  slice from the parent (an adopter's session, 2026-11-26).
 - Google Antigravity (the `agy` CLI and the IDE) reads `AGENTS.md` and `.agents/skills`, and
   workspace hooks from `.agents/hooks.json` once the folder is trusted. One `aeion-template` group
   sends PreToolUse and PostToolUse (matcher `.*`) and Stop to `tools/agents/hook.py antigravity

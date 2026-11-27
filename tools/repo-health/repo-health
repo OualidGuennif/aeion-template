@@ -4,7 +4,7 @@
     tools/repo-health/repo-health            print the scorecard; fail on a cap
     tools/repo-health/repo-health --json     the scorecard as JSON
 
-Caps: AGENTS.md at most 120 lines; work/current.md at most 150; no tracked source file (by suffix or shebang) over 1,500
+Caps: AGENTS.md at most 120 lines; work/current.md at most 150; no source file, tracked or untracked (by suffix or shebang), over 1,500
 lines; no comment block over 20 lines; at most nine top-level folders, not counting a folder releases leave out
 (`/name export-ignore`). Warns, never fails, past 20 unfilled handover skeletons.
 Spec: knowledge/policies/engineering.md
@@ -25,9 +25,11 @@ import handovers  # noqa: E402
 UNFILLED_WARN = 20
 
 
-def tracked():
+def checked_files():
+    # Untracked, unignored files too: local mode keeps the work uncommitted, and a report on tracked files alone
+    # read "0 big files" over a whole untracked application.
     try:
-        files = project_files(ROOT)
+        files = project_files(ROOT, untracked=True)
     except (OSError, subprocess.SubprocessError) as error:
         print(f"FAIL file enumeration failed: {error}", file=sys.stderr)
         sys.exit(1)
@@ -53,7 +55,7 @@ def longest_comment_block(text):
 
 
 def main(argv):
-    files = tracked()
+    files = checked_files()
     candidates = [p for p in files if is_source(p) and not p.name.startswith("test_")]
     # The versioned passive library preserves upstream formatting; its own integrity check is mandatory.
     catalog = ROOT / "skills/catalog.json"

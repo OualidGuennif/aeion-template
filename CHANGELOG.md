@@ -50,6 +50,18 @@ dates them at release time. Spec: knowledge/policies/engineering.md
   than its file and resends it with every call, which the file-size intake check never bounded. The
   context docs note that Droid's meter can read past 100% from images while `lastCallTokenUsage`
   and the 355k compaction agree.
+- Closure no longer loops on a commit: the receipt hashes the tree's bytes, not HEAD, so committing
+  verified docs keeps it, and closure admits `git add` of doc files and `git commit -m` while only docs
+  are staged. A refused call lists what closure admits and the paths changed since the last receipt.
+- The checkpoint refuses a handover over 32 KiB or with a line over 1,000 characters, so the next
+  context reads it whole under bounded intake (an adopter's had grown to 70 KB).
+- A folder in a doc's `sources` covers the files under it for the doc gate (`doc-links --for`); L3
+  still follows listed files only.
+- `repo-health` counts untracked, unignored files too, so local mode's uncommitted work is measured.
+- guard-bash names the word that reaches a secret (a dot glob, say) instead of listing every secret
+  name it knows.
+- `.aeion/tmp/` is the in-project scratch folder (AGENTS.md); the adopt skill carries over only the
+  "Adapt" entry of `work/current.md`; the Droid notes ask for one fresh, bounded task per subagent.
 
 ## [4.0.3] - 2026-11-15
 

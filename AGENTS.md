@@ -88,6 +88,7 @@ the owner's yes, `knowledge/policies/owner-preferences.md`.
 
 Steps top to bottom, one call per step with a one-line intent comment; comments say why, never the
 history; no abstraction without two real users; a spec before the code: `knowledge/policies/engineering.md`.
+Scratch files go to the ignored `.aeion/tmp/`: inside the project, outside the checkpoint receipt, safe to `rm -rf`.
 
 ## How a task flows
 
