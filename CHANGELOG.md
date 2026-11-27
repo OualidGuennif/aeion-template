@@ -6,6 +6,8 @@ dates them at release time. Spec: knowledge/policies/engineering.md
 
 ## [Unreleased]
 
+## [4.1.0] - 2026-11-27
+
 - A 300k notice asks for the handover while the detail is still in context, once per climb, and
   refuses nothing. Claude compacts natively at the same 340k that raises the alert, so before this
   the handover was written after the compaction, from the summary.
