@@ -61,9 +61,18 @@ def digest(path):
     return hashlib.sha256(path.read_bytes()).hexdigest() if path.is_file() and not path.is_symlink() else ""
 
 
+def repository(root):
+    """Whether root is its own git work tree; a .git that git cannot read counts as none here, since session start
+    and the sign-off report that themselves and must still finish."""
+    try:
+        return git_active(root)
+    except subprocess.SubprocessError:
+        return False
+
+
 def head(root):
     # A plain folder nested in another repository has no HEAD of its own; git would answer for the parent.
-    if not git_active(root):
+    if not repository(root):
         return ""
     found = subprocess.run(["git", "rev-parse", "--verify", "--quiet", "HEAD"], cwd=root, capture_output=True,
                            text=True, check=False)
@@ -99,7 +108,7 @@ def behind(root, path):
     saved = path.stat().st_mtime
     moved = []
     committed = subprocess.run(["git", "log", "-1", "--format=%ct"], cwd=root, capture_output=True, text=True,
-                               check=False) if git_active(root) else None
+                               check=False) if repository(root) else None
     if committed and committed.returncode == 0 and committed.stdout.strip().isdigit() and int(committed.stdout.strip()) > saved:
         moved.append("HEAD")
     work = root / "work/current.md"

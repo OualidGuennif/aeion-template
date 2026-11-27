@@ -639,6 +639,12 @@ class BudgetTests(unittest.TestCase):
         # Two sessions starting together: the other one pruned the skeleton first.
         with patch.object(handovers, "unfilled_files", return_value=[nested / "work/handovers/gone.md"]):
             self.assertEqual(handovers.prune(nested), 0)
+        # A .git that git cannot read: session start reports it, so the handover check must not end the hook.
+        (nested / ".git").write_text("gitdir: /nonexistent\n")
+        with self.assertRaises(subprocess.CalledProcessError):
+            budget.git_active(nested)
+        self.assertEqual(handovers.head(nested), "")
+        self.assertEqual(handovers.behind(nested, written), [])
 
     def test_checkpoint_is_admitted_from_any_folder_and_only_for_this_root(self):
         # A shell left in a subfolder at the alert must still reach this root's checkpoint.
